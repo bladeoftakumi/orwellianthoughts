@@ -1,0 +1,80 @@
+rules_version = '2';
+
+// Doublethink — Firestore security rules
+// Model: a "users" doc per account holds a role: "main" (single main admin)
+// or "sub" (sub-admin editor). The public record (figures + entries) is
+// world-readable; only admins may write. Only the main admin manages editors.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && userDoc().role in ['main', 'sub'];
+    }
+    function isMainAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && userDoc().role == 'main';
+    }
+
+    // Public record: anyone can read; only admins can write.
+    match /figures/{figureId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+
+      match /entries/{entryId} {
+        allow read: if true;
+        allow create, update, delete: if isAdmin();
+      }
+    }
+
+    // Doublethink flags: their own reviewed records. World-readable; admins write.
+    match /flags/{flagId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // AI ingestion queue. NOT public. Any admin (main or sub) may read and
+    // review; the ingestion agent writes here via the Admin SDK (which bypasses
+    // these rules). Admins update status (approve/reject) and delete.
+    match /drafts/{draftId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if isAdmin();
+    }
+
+    // Instance bootstrap flag. World-readable so the app knows whether the
+    // one-time main-admin setup has already happened. Created exactly once,
+    // by the account that claims the instance; only main admin can touch it after.
+    match /meta/{doc} {
+      allow read: if true;
+      allow create: if signedIn()
+        && doc == 'bootstrap'
+        && !exists(/databases/$(database)/documents/meta/bootstrap);
+      allow update, delete: if isMainAdmin();
+    }
+
+    // Editor registry. Admins may read the list of editors.
+    // Only the main admin can create, edit, or remove editor records
+    // (this is what gates who is allowed to add entries).
+    match /users/{uid} {
+      allow read: if isAdmin();
+      // One-time claim: if no bootstrap exists yet, a signed-in account may
+      // create ITS OWN user doc as the main admin. After that, only the main
+      // admin can create or change editor records.
+      allow create: if isMainAdmin()
+        || (signedIn()
+            && request.auth.uid == uid
+            && request.resource.data.role == 'main'
+            && !exists(/databases/$(database)/documents/meta/bootstrap));
+      allow update, delete: if isMainAdmin();
+    }
+  }
+}

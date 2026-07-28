@@ -1,0 +1,26 @@
+rules_version = '2';
+
+// Doublethink — Firebase Storage security rules
+// Figure photos live under figures/. Anyone may read (the public record shows
+// them); only signed-in admins may upload or delete, and only real images
+// under 8 MB. "Admin" here means any signed-in account: Firestore rules already
+// govern who can write the figure doc that references the photo, and Storage
+// cannot cheaply read Firestore, so we gate on authentication + content type.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    match /figures/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null;
+    }
+
+    // Everything else is locked by default.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
