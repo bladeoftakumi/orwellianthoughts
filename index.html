@@ -70,6 +70,8 @@
       F.deleteDoc = (path) => fs.deleteDoc(fs.doc(db, ...path.split("/")));
       F.getCollection = async (path) => { const snap = await fs.getDocs(fs.collection(db, ...path.split("/"))); return snap.docs.map(d => ({ id: d.id, ...d.data() })); };
       F.watchCollection = (path, cb) => fs.onSnapshot(fs.collection(db, ...path.split("/")), (snap) => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
+      F.watchWhere = (path, field, op, val, cb) => fs.onSnapshot(fs.query(fs.collection(db, ...path.split("/")), fs.where(field, op, val)), (snap) => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
+      F.mergeDoc = (path, data) => fs.setDoc(fs.doc(db, ...path.split("/")), data, { merge: true });
       F.bootstrapExists = async () => { try { return !!(await F.getDoc("meta/bootstrap")); } catch (e) { return true; } };
       // ---- Storage (figure photos) ----
       F.hasStorage = true;
@@ -177,6 +179,7 @@
           </sc-if>
         </div>
       </sc-if>
+      <button onClick="{{ goArticlesPublic }}" style="padding: 8px 14px; border-radius: 9px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap;">Articles</button>
       <button onClick="{{ goAbout }}" style="padding: 8px 14px; border-radius: 9px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap;">About</button>
       <button onClick="{{ toggleTheme }}" title="Toggle theme" style="width: 36px; height: 36px; border-radius: 9px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); cursor: pointer; display: flex; align-items: center; justify-content: center;">
         <span style="font-size: 15px;">{{ themeIcon }}</span>
@@ -547,8 +550,8 @@
         </sc-if>
 
         <div style="margin-top: 22px;">
-          <label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Email</label>
-          <input class="ot-inp" type="email" value="{{ email }}" onInput="{{ onEmail }}" placeholder="you@organization.org" />
+          <label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Email or username</label>
+          <input class="ot-inp" type="text" value="{{ email }}" onInput="{{ onEmail }}" placeholder="you@organization.org or username" />
         </div>
         <div style="margin-top: 15px;">
           <label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Password</label>
@@ -622,6 +625,18 @@
           <p style="margin: 13px 0 0; font-size: 13.5px; color: var(--muted); line-height: 1.55;">Figures and entries drafted by the research agent, waiting for a human to approve or reject before they go public.</p>
           <button onClick="{{ goReview }}" style="margin-top: 16px; padding: 9px 14px; border-radius: 9px; border: 1px solid var(--red); background: var(--red); color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 12.5px; cursor: pointer; white-space: nowrap;">Review drafts &rarr;</button>
         </div>
+        <sc-if value="{{ canArticles }}" hint-placeholder-val="{{ false }}">
+        <div style="background: var(--surface); border: 1px solid var(--hair); border-radius: 15px; padding: 24px;">
+          <div style="display: flex; align-items: center; gap: 11px;">
+            <div style="width: 40px; height: 40px; border-radius: 10px; background: var(--red-soft); display: flex; align-items: center; justify-content: center;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M4 4h16v16H4z"></path><path d="M8 8h8M8 12h8M8 16h5"></path></svg>
+            </div>
+            <h2 style="margin: 0; font-family: 'Newsreader', serif; font-weight: 600; font-size: 20px;">Articles</h2>
+          </div>
+          <p style="margin: 13px 0 0; font-size: 13.5px; color: var(--muted); line-height: 1.55;">Write essays and analysis for the public site. Save a draft, then publish when it is ready.</p>
+          <button onClick="{{ goArticlesAdmin }}" style="margin-top: 16px; padding: 9px 14px; border-radius: 9px; border: 1px solid var(--red); background: var(--red); color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 12.5px; cursor: pointer; white-space: nowrap;">Manage articles &rarr;</button>
+        </div>
+        </sc-if>
       </div>
 
       <button onClick="{{ logout }}" style="margin-top: 30px; padding: 10px 17px; border-radius: 9px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap;">Sign out</button>
@@ -732,13 +747,13 @@
       </div>
 
       <div style="margin-top: 20px; border: 1px solid var(--hair); border-radius: 14px; overflow: hidden;">
-        <div style="display: grid; grid-template-columns: minmax(140px,1.4fr) minmax(180px,2fr) 110px 130px 168px; gap: 14px; padding: 13px 20px; background: var(--panel); border-bottom: 1px solid var(--hair); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600;">
-          <div>Name</div><div>Email</div><div>Role</div><div>Created</div><div style="text-align: right;">Actions</div>
+        <div style="display: grid; grid-template-columns: minmax(140px,1.4fr) minmax(160px,1.8fr) 100px 120px 250px; gap: 14px; padding: 13px 20px; background: var(--panel); border-bottom: 1px solid var(--hair); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600;">
+          <div>Name</div><div>Username</div><div>Role</div><div>Created</div><div style="text-align: right;">Actions</div>
         </div>
         <sc-for list="{{ users }}" as="u" hint-placeholder-count="3">
-          <div style="display: grid; grid-template-columns: minmax(140px,1.4fr) minmax(180px,2fr) 110px 130px 168px; gap: 14px; padding: 15px 20px; border-bottom: 1px solid var(--hair); align-items: center; background: var(--surface);">
+          <div style="display: grid; grid-template-columns: minmax(140px,1.4fr) minmax(160px,1.8fr) 100px 120px 250px; gap: 14px; padding: 15px 20px; border-bottom: 1px solid var(--hair); align-items: center; background: var(--surface);">
             <div style="font-weight: 600; font-size: 14px;">{{ u.name }}</div>
-            <div style="font-size: 13.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ u.email }}</div>
+            <div style="font-size: 13.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ u.login }}</div>
             <div><span style="{{ u.roleStyle }}">{{ u.roleLabel }}</span></div>
             <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted);">{{ u.createdLabel }}</div>
             <div style="display: flex; justify-content: flex-end; gap: 8px;">
@@ -748,6 +763,9 @@
                 <button onClick="{{ u.onCancel }}" style="padding: 6px 10px; border-radius: 7px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; cursor: pointer;">Cancel</button>
               </sc-if>
               <sc-if value="{{ u.showActions }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ u.onToggleArticles }}" title="Grant or revoke Articles access" style="{{ u.articlesBtnStyle }}">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"></path><path d="M8 9h8M8 13h5"></path></svg>{{ u.articlesLabel }}
+                </button>
                 <button onClick="{{ u.onReset }}" title="Reset password" style="display: flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: 7px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="15" r="4"></circle><path d="M10.8 12.2 21 2m-4 0 3 3-3 3"></path></svg>Reset
                 </button>
@@ -764,19 +782,207 @@
     </div>
   </sc-if>
 
+  <sc-if value="{{ isArticles }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width: 820px; margin: 0 auto; padding: 60px 28px 110px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--red); margin-bottom: 14px;">Articles</div>
+      <h1 style="margin: 0; font-family: 'Newsreader', serif; font-weight: 600; font-size: 42px; line-height: 1.06; letter-spacing: -0.02em;">Notes on the record</h1>
+      <sc-if value="{{ noArticles }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top: 44px; border: 1px dashed var(--hair); border-radius: 14px; padding: 52px 24px; text-align: center;"><p style="margin: 0; color: var(--muted); font-size: 14px;">No articles published yet.</p></div>
+      </sc-if>
+      <div style="margin-top: 54px; display: flex; flex-direction: column; gap: 58px;">
+        <sc-for list="{{ articleList }}" as="a" hint-placeholder-count="3">
+          <div>
+            <h2 onClick="{{ a.onOpen }}" style="margin: 0; font-family: 'IBM Plex Sans', sans-serif; font-weight: 700; font-size: 27px; line-height: 1.15; letter-spacing: -0.01em; cursor: pointer;">{{ a.title }}</h2>
+            <sc-if value="{{ a.hasSubtitle }}" hint-placeholder-val="{{ false }}"><div onClick="{{ a.onOpen }}" style="margin-top: 10px; font-size: 19px; font-weight: 600; line-height: 1.3; cursor: pointer;">{{ a.subtitle }}</div></sc-if>
+            <sc-if value="{{ a.hasSummary }}" hint-placeholder-val="{{ false }}"><p style="margin: 13px 0 0; font-size: 16.5px; line-height: 1.62; color: var(--muted);">{{ a.summary }} <span onClick="{{ a.onOpen }}" style="color: var(--ink); font-weight: 600; cursor: pointer; white-space: nowrap;">Read &rsaquo;</span></p></sc-if>
+            <div style="display: flex; align-items: center; gap: 14px; margin-top: 17px; flex-wrap: wrap; font-size: 13.5px; color: var(--muted);">
+              <sc-if value="{{ a.hasAuthor }}" hint-placeholder-val="{{ false }}"><span>{{ a.author }}</span></sc-if>
+              <span>{{ a.dateLabel }}</span>
+              <sc-if value="{{ a.hasTags }}" hint-placeholder-val="{{ false }}"><span style="display: flex; gap: 10px;"><sc-for list="{{ a.tagList }}" as="t" hint-placeholder-count="2"><span style="color: var(--red); font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.04em;">{{ t }}</span></sc-for></span></sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isArticleView }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width: 720px; margin: 0 auto; padding: 48px 28px 110px;">
+      <button onClick="{{ goArticlesPublic }}" style="display: flex; align-items: center; gap: 7px; background: none; border: none; padding: 0; cursor: pointer; color: var(--muted); font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; margin-bottom: 26px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l-6 6 6 6"></path></svg> All articles
+      </button>
+      <sc-if value="{{ hasArticle }}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; align-items: center; gap: 14px; font-size: 13.5px; color: var(--muted); margin-bottom: 16px;">
+          <sc-if value="{{ av.hasAuthor }}" hint-placeholder-val="{{ false }}"><span>{{ av.author }}</span></sc-if>
+          <span>{{ av.dateLabel }}</span>
+        </div>
+        <h1 style="margin: 0; font-family: 'IBM Plex Sans', sans-serif; font-weight: 700; font-size: 38px; line-height: 1.12; letter-spacing: -0.02em;">{{ av.title }}</h1>
+        <sc-if value="{{ av.hasSubtitle }}" hint-placeholder-val="{{ false }}"><p style="margin: 15px 0 0; font-size: 20px; font-weight: 600; line-height: 1.35; color: var(--ink);">{{ av.subtitle }}</p></sc-if>
+        <sc-if value="{{ av.hasTags }}" hint-placeholder-val="{{ false }}"><div style="display: flex; gap: 12px; margin-top: 18px;"><sc-for list="{{ av.tagList }}" as="t" hint-placeholder-count="2"><span style="color: var(--red); font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;">{{ t }}</span></sc-for></div></sc-if>
+        <div style="margin-top: 32px;">{{ articleBody }}</div>
+        <sc-if value="{{ av.hasFigures }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top: 40px; padding-top: 26px; border-top: 1px solid var(--hair);">
+            <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 10px;">{{ av.figuresLabel }}</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;"><sc-for list="{{ av.figures }}" as="fig" hint-placeholder-count="1"><button onClick="{{ fig.onOpen }}" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 15px; border-radius: 10px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 13.5px; cursor: pointer;">{{ fig.name }} <span style="color: var(--red);">&rarr;</span></button></sc-for></div>
+          </div>
+        </sc-if>
+      </sc-if>
+      <sc-if value="{{ articleMissing }}" hint-placeholder-val="{{ false }}"><p style="color: var(--muted); font-size: 14px;">This article is no longer available.</p></sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isArticlesAdmin }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width: 1120px; margin: 0 auto; padding: 34px 28px 80px;">
+      <button onClick="{{ goAdmin }}" style="display: flex; align-items: center; gap: 7px; background: none; border: none; padding: 0; cursor: pointer; color: var(--muted); font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; margin-bottom: 18px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l-6 6 6 6"></path></svg> Admin portal
+      </button>
+      <div style="display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 220px;">
+          <h1 style="margin: 0; font-family: 'Newsreader', serif; font-weight: 600; font-size: 34px;">Articles</h1>
+          <p style="margin: 6px 0 0; font-size: 14px; color: var(--muted);">Write essays and analysis. Save as a draft, publish when ready.</p>
+        </div>
+        <button onClick="{{ onNewArticle }}" style="display: flex; align-items: center; gap: 7px; padding: 11px 17px; border-radius: 10px; border: 1px solid var(--red); background: var(--red); color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 13.5px; cursor: pointer; white-space: nowrap;"><span style="font-size: 16px; line-height: 1;">+</span> New article</button>
+      </div>
+      <sc-if value="{{ noAdminArticles }}" hint-placeholder-val="{{ true }}">
+        <div style="margin-top: 24px; border: 1px dashed var(--hair); border-radius: 14px; padding: 48px 24px; text-align: center;"><p style="margin: 0; color: var(--muted); font-size: 13.5px;">No articles yet. Click New article to write the first one.</p></div>
+      </sc-if>
+      <div style="margin-top: 22px; border: 1px solid var(--hair); border-radius: 14px; overflow: hidden;">
+        <sc-for list="{{ adminArticles }}" as="a" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-bottom: 1px solid var(--hair); background: var(--surface);">
+            <div style="flex: 1; min-width: 0;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="{{ a.statusStyle }}">{{ a.statusLabel }}</span>
+                <span style="font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace;">{{ a.dateLabel }}</span>
+              </div>
+              <div style="margin-top: 7px; font-weight: 600; font-size: 16px;">{{ a.title }}</div>
+              <sc-if value="{{ a.hasSubtitle }}" hint-placeholder-val="{{ false }}"><div style="margin-top: 2px; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ a.subtitle }}</div></sc-if>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
+              <sc-if value="{{ a.confirming }}" hint-placeholder-val="{{ false }}">
+                <span style="font-size: 12.5px; color: var(--muted);">Delete?</span>
+                <button onClick="{{ a.onConfirm }}" style="padding: 7px 11px; border-radius: 7px; border: 1px solid var(--red); background: var(--red); color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer;">Yes</button>
+                <button onClick="{{ a.onCancel }}" style="padding: 7px 11px; border-radius: 7px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; cursor: pointer;">Cancel</button>
+              </sc-if>
+              <sc-if value="{{ a.notConfirming }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ a.onToggle }}" style="padding: 7px 12px; border-radius: 7px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">{{ a.toggleLabel }}</button>
+                <button onClick="{{ a.onEdit }}" style="padding: 7px 12px; border-radius: 7px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer;">Edit</button>
+                <button onClick="{{ a.onDelete }}" title="Delete article" style="width: 30px; height: 30px; border-radius: 7px; border: 1px solid var(--hair); background: var(--panel); color: var(--red); cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"></path></svg></button>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isArticleEdit }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width: 820px; margin: 0 auto; padding: 34px 28px 90px;">
+      <button onClick="{{ onCancelArticle }}" style="display: flex; align-items: center; gap: 7px; background: none; border: none; padding: 0; cursor: pointer; color: var(--muted); font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; margin-bottom: 18px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l-6 6 6 6"></path></svg> All articles
+      </button>
+      <h1 style="margin: 0 0 22px; font-family: 'Newsreader', serif; font-weight: 600; font-size: 30px;">{{ aEditTitle }}</h1>
+      <div>
+        <label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Title</label>
+        <input class="ot-inp" value="{{ aTitle }}" onInput="{{ onArticleTitle }}" placeholder="Article title" />
+      </div>
+      <div style="margin-top: 14px;">
+        <label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Subtitle</label>
+        <input class="ot-inp" value="{{ aSubtitle }}" onInput="{{ onArticleSubtitle }}" placeholder="Optional one-line subtitle" />
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px;">
+        <div>
+          <label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Author</label>
+          <input class="ot-inp" value="{{ aAuthor }}" onInput="{{ onArticleAuthor }}" placeholder="Byline" />
+        </div>
+        <div>
+          <label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Published date</label>
+          <input class="ot-inp" type="date" value="{{ aDate }}" onInput="{{ onArticleDate }}" />
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px;">
+        <div>
+          <label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Tags</label>
+          <input class="ot-inp" value="{{ aTags }}" onInput="{{ onArticleTags }}" placeholder="Comma separated, e.g. Ethics, Housing" />
+        </div>
+        <div>
+          <label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Linked figures</label>
+          <div style="position: relative;">
+            <button onClick="{{ onToggleFigOpen }}" class="ot-inp" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; text-align: left;">
+              <span style="{{ figLabelStyle }}">{{ figureDropdownLabel }}</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0; color: var(--muted);"><path d="M6 9l6 6 6-6"></path></svg>
+            </button>
+            <sc-if value="{{ figOpen }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ onCloseFigOpen }}" style="position: fixed; inset: 0; z-index: 40;"></div>
+              <div style="position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 50; max-height: 240px; overflow-y: auto; background: var(--surface); border: 1px solid var(--hair); border-radius: 11px; box-shadow: var(--shadow); padding: 6px;">
+                <sc-if value="{{ hasFigureOptions }}" hint-placeholder-val="{{ true }}">
+                  <sc-for list="{{ figureOptions }}" as="f" hint-placeholder-count="3"><button onClick="{{ f.onToggle }}" style="width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 7px; border: none; background: none; color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-size: 13.5px; font-weight: 500; cursor: pointer; text-align: left;"><span style="{{ f.boxStyle }}">{{ f.check }}</span>{{ f.name }}</button></sc-for>
+                </sc-if>
+                <sc-if value="{{ hasFigureOptions }}" hint-placeholder-val="{{ false }}"></sc-if>
+                <sc-if value="{{ noFigureOptions }}" hint-placeholder-val="{{ false }}"><div style="padding: 10px; font-size: 12.5px; color: var(--muted);">No figures yet. Create figures first.</div></sc-if>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 18px;">
+        <label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; margin-bottom: 8px;">Body</label>
+        <div style="display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;">
+          <button onClick="{{ onBodyH2 }}" style="{{ toolBtn }}">H2</button>
+          <button onClick="{{ onBodyH3 }}" style="{{ toolBtn }}">H3</button>
+          <button onClick="{{ onBodyBold }}" style="{{ toolBtn }}"><strong>B</strong></button>
+          <button onClick="{{ onBodyQuote }}" style="{{ toolBtn }}">&ldquo; Quote</button>
+          <button onClick="{{ onBodyLink }}" style="{{ toolBtn }}">Link</button>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start;">
+          <div>
+            <textarea ref="{{ bodyRef }}" value="{{ aBody }}" onInput="{{ onArticleBody }}" placeholder="Write here. Use the buttons above for headings, bold, quotes, and links." style="width: 100%; min-height: 420px; padding: 16px; border-radius: 11px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-size: 15px; line-height: 1.6; outline: none; resize: vertical; box-sizing: border-box;"></textarea>
+            <p style="margin: 8px 0 0; font-size: 12px; color: var(--muted);">Formatting: <strong>## </strong> heading, <strong>### </strong> smaller heading, <strong>**bold**</strong>, <strong>&gt; </strong> quote, <strong>[text](https://link)</strong>. Blank line starts a new paragraph.</p>
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <div style="font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600;">Live preview</div>
+              <button onClick="{{ onPreviewFull }}" title="View full size" style="display: flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 7px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; font-weight: 600; cursor: pointer;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"></path></svg>Full screen</button>
+            </div>
+            <div style="border: 1px solid var(--hair); border-radius: 11px; padding: 22px; min-height: 420px; background: var(--surface); box-sizing: border-box;">{{ articleEditPreview }}</div>
+          </div>
+        </div>
+      </div>
+      <sc-if value="{{ aErr }}" hint-placeholder-val="{{ false }}"><div style="margin-top: 14px; font-size: 13px; color: var(--red);">{{ aErr }}</div></sc-if>
+      <div style="display: flex; gap: 10px; margin-top: 24px; align-items: center;">
+        <button onClick="{{ onSaveDraft }}" style="padding: 11px 18px; border-radius: 10px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 14px; cursor: pointer;">{{ saveDraftLabel }}</button>
+        <button onClick="{{ onPublishArticle }}" style="padding: 11px 20px; border-radius: 10px; border: 1px solid var(--red); background: var(--red); color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 14px; cursor: pointer;">{{ publishLabel }}</button>
+        <sc-if value="{{ canUnpublish }}" hint-placeholder-val="{{ false }}"><button onClick="{{ onUnpublishArticle }}" style="padding: 11px 16px; border-radius: 10px; border: none; background: none; color: var(--muted); font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 13px; cursor: pointer;">Unpublish</button></sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showPreviewFull }}" hint-placeholder-val="{{ false }}">
+    <div style="position: fixed; inset: 0; z-index: 70; background: var(--bg); overflow-y: auto;">
+      <div style="position: sticky; top: 0; background: var(--bg); border-bottom: 1px solid var(--hair); z-index: 2;">
+        <div style="max-width: 720px; margin: 0 auto; padding: 14px 28px; display: flex; align-items: center; justify-content: space-between;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted);">Preview</div>
+          <button onClick="{{ onClosePreviewFull }}" style="display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 9px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 13px; cursor: pointer;">Close preview <span style="font-size: 15px; line-height: 1;">&times;</span></button>
+        </div>
+      </div>
+      <div style="max-width: 720px; margin: 0 auto; padding: 40px 28px 90px;">
+        {{ articleEditPreview }}
+      </div>
+    </div>
+  </sc-if>
+
   <sc-if value="{{ showModal }}" hint-placeholder-val="{{ false }}">
     <div style="position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; padding: 24px;">
       <div style="width: 100%; max-width: 440px; background: var(--surface); border: 1px solid var(--hair); border-radius: 16px; padding: 26px; box-shadow: var(--shadow);">
         <sc-if value="{{ modalCreate }}" hint-placeholder-val="{{ false }}">
           <h2 style="margin: 0; font-family: 'Newsreader', serif; font-weight: 600; font-size: 23px;">Add user</h2>
-          <p style="margin: 7px 0 0; font-size: 13px; color: var(--muted); line-height: 1.5;">Create an account and generate a temporary password to share.</p>
+          <p style="margin: 7px 0 0; font-size: 13px; color: var(--muted); line-height: 1.5;">Create an editor account and generate a temporary password to share. Editors sign in with their username.</p>
           <div style="margin-top: 20px;">
             <label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Full name</label>
             <input class="ot-inp" value="{{ modal.name }}" onInput="{{ modal.onName }}" placeholder="Jane Editor" />
           </div>
           <div style="margin-top: 14px;">
-            <label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Email</label>
-            <input class="ot-inp" type="email" value="{{ modal.email }}" onInput="{{ modal.onEmail }}" placeholder="jane@organization.org" />
+            <label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Username</label>
+            <input class="ot-inp" type="text" value="{{ modal.username }}" onInput="{{ modal.onUsername }}" placeholder="jane.editor" />
           </div>
           <sc-if value="{{ modal.err }}" hint-placeholder-val="{{ false }}"><div style="margin-top: 13px; font-size: 13px; color: var(--red);">{{ modal.err }}</div></sc-if>
           <div style="display: flex; gap: 10px; margin-top: 22px;">
@@ -789,7 +995,7 @@
           <p style="margin: 7px 0 0; font-size: 13px; color: var(--muted); line-height: 1.5;">Copy these credentials and send them securely to {{ modal.cName }}. They can reset the password after signing in.</p>
           <div style="margin-top: 18px; border: 1px solid var(--hair); border-radius: 11px; overflow: hidden;">
             <div style="display: flex; align-items: center; gap: 10px; padding: 13px 15px; border-bottom: 1px solid var(--hair);">
-              <div style="flex: 1; min-width: 0;"><div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 3px;">Email</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow: hidden; text-overflow: ellipsis;">{{ modal.cEmail }}</div></div>
+              <div style="flex: 1; min-width: 0;"><div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 3px;">Username</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow: hidden; text-overflow: ellipsis;">{{ modal.cEmail }}</div></div>
               <button onClick="{{ modal.onCopyEmail }}" style="padding: 7px 11px; border-radius: 7px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; min-width: 62px;">{{ modal.copyEmailLabel }}</button>
             </div>
             <div style="display: flex; align-items: center; gap: 10px; padding: 13px 15px;">
@@ -946,8 +1152,9 @@
       <h2 style="margin: 46px 0 0; font-family: 'Newsreader', serif; font-weight: 600; font-size: 24px;">Sourced and reviewed</h2>
       <p style="margin: 12px 0 0; font-size: 15.5px; line-height: 1.65; color: var(--muted);">Every update carries its own proof, articles, video, and transcripts, and entries are submitted by contributors and reviewed before they publish. Status reflects a verified outcome, never an editorial opinion.</p>
 
-      <div style="margin-top: 44px;">
+      <div style="margin-top: 44px; display: flex; gap: 12px; flex-wrap: wrap;">
         <button onClick="{{ goHome }}" style="padding: 12px 20px; border-radius: 10px; border: 1px solid var(--red); background: var(--red); color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 14px; cursor: pointer;">Browse the record</button>
+        <button onClick="{{ goArticlesPublic }}" style="padding: 12px 20px; border-radius: 10px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 14px; cursor: pointer;">Read the articles</button>
       </div>
     </div>
   </sc-if>
@@ -1418,21 +1625,23 @@ class Component extends DCLogic {
         el2.scrollLeft = f * el2.scrollWidth - cursorX;
       });
     };
-    this.state = { theme: 'light', view: 'home', personId: null, homeQuery: '',
+    this.state = { theme: this.loadTheme(), view: 'home', personId: null, homeQuery: '',
       typeFilter: 'all', statusFilter: 'all', metricView: 'reliability', metricFilter: null, zoom: 1, hoverId: null, pinnedId: null, highlight: [], hoverLife: null,
       authUser: null, fbReady: false, fbConfigured: true, email: '', password: '', authErr: '', authBusy: false,
       bootstrapExists: null, authStep: 'signin', mfaResolver: null, mfaVid: '', mfaHint: '', mfaCode: '', mfaErr: '', mfaBusy: false,
       claimName: '', claimEmail: '', claimPass: '', claimConf: '', claimErr: '', claimBusy: false,
       enrollOpen: false, enrollStep: 'intro', enrollPhone: '', enrollVid: '', enrollCode: '', enrollErr: '', enrollBusy: false, enrollDone: false,
       users: this.loadUsers(), userSearch: '', roleFilter: 'all', modal: null, modalErr: '', confirmDelete: null,
-      mName: '', mEmail: '', mRole: 'sub',
+      mName: '', mUser: '', mRole: 'sub',
       menuOpen: false, settingsOpen: false, sNew: '', sConf: '', sErr: '', sDone: false, copied: null,
       figures: this.loadFigures(), figSearch: '', editFigureId: null,
       flags: this.loadFlags(), flModalOpen: false, flEditId: null, flDraft: null, flErr: '', confirmFlag: null, pinnedFlag: null,
       drafts: this.loadDrafts(), draftOpenId: null, draftErr: '', draftBusy: false, confirmDraft: null,
       starred: this.loadStarred(), starMsg: '',
       fModalOpen: false, fEditId: null, fName: '', fRole: '', fCountry: '', fState: '', fCity: '', comboOpen: null, fPhoto: '', fPhotoFile: null, fPhotoPath: '', fPhotoBusy: false, fBirth: '', fMilestones: [], fErr: '', confirmFig: null,
-      eModalOpen: false, eEditId: null, eDraft: null, eErr: '', confirmEntry: null, adminTab: 'promises' };
+      eModalOpen: false, eEditId: null, eDraft: null, eErr: '', confirmEntry: null, adminTab: 'promises',
+      articlesPub: this.loadArticlesPub(), articlesAll: this.loadArticlesAll(),
+      aEditId: null, aTitle: '', aSubtitle: '', aAuthor: '', aDate: '', aTags: '', aFigureIds: [], aBody: '', aErr: '', aBusy: false, aPreview: false, aPreviewFull: false, articleViewId: null, confirmArticle: null };
   }
 
   componentDidMount() {
@@ -1450,20 +1659,31 @@ class Component extends DCLogic {
         this._flagUnsub = window.otFB.watchCollection('flags', (rows) => {
           if (Array.isArray(rows)) { this.setState({ flags: rows }); try { localStorage.setItem('ot_flags_v1', JSON.stringify(rows)); } catch (e) {} }
         });
+        if (window.otFB.watchWhere) {
+          this._artPubUnsub = window.otFB.watchWhere('articles', 'status', '==', 'published', (rows) => {
+            const sorted = (rows || []).slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+            this.setState({ articlesPub: sorted }); try { localStorage.setItem('ot_articles_pub_v1', JSON.stringify(sorted)); } catch (e) {}
+          });
+        }
         this._userUnsub = window.otFB.watchCollection('users', (rows) => {
-          if (Array.isArray(rows) && rows.length) { const norm = rows.map(u => ({ id: u.id, name: u.name || (u.email || '').split('@')[0], email: u.email || '', role: u.role || 'sub', status: u.status || 'active', created: u.created || Date.now() })); this.setState({ users: norm }); }
+          if (Array.isArray(rows) && rows.length) { const norm = rows.map(u => ({ id: u.id, name: u.name || (u.email || '').split('@')[0], username: u.username || '', email: u.email || '', role: u.role || 'sub', status: u.status || 'active', created: u.created || Date.now() })); this.setState({ users: norm }); }
         });
       }
       window.otFB.onChange((u) => {
         this.setState((s) => {
           let view = s.view;
           if (u && s.view === 'login') view = 'admin';
-          if (!u && (s.view === 'admin' || s.view === 'users' || s.view === 'figures' || s.view === 'figureEdit' || s.view === 'review')) view = 'home';
+          if (!u && (s.view === 'admin' || s.view === 'users' || s.view === 'figures' || s.view === 'figureEdit' || s.view === 'review' || s.view === 'articlesAdmin' || s.view === 'articleEdit')) view = 'home';
           return { authUser: u, view };
         });
         // One-time migration removed: profiles are test data, seeded per device.
         if (u && window.otFB.configured && window.otFB.watchCollection) {
           if (this._draftUnsub) { try { this._draftUnsub(); } catch (e) {} }
+          if (this._artAllUnsub) { try { this._artAllUnsub(); } catch (e) {} }
+          this._artAllUnsub = window.otFB.watchCollection('articles', (rows) => {
+            const sorted = (rows || []).slice().sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0));
+            this.setState({ articlesAll: sorted }); try { localStorage.setItem('ot_articles_all_v1', JSON.stringify(sorted)); } catch (e) {}
+          });
           this._draftUnsub = window.otFB.watchCollection('drafts', (rows) => {
             const pending = rows.filter(r => (r.status || 'pending') === 'pending');
             if (pending.length) this.saveDrafts(pending);
@@ -1634,6 +1854,134 @@ class Component extends DCLogic {
   }
 
   openFigures() { this.setState({ view: 'figures', figSearch: '' }); }
+
+  // ---- Articles ----
+  loadArticlesPub() { try { const r = JSON.parse(localStorage.getItem('ot_articles_pub_v1')); if (Array.isArray(r)) return r; } catch (e) {} return []; }
+  loadArticlesAll() { try { const r = JSON.parse(localStorage.getItem('ot_articles_all_v1')); if (Array.isArray(r)) return r; } catch (e) {} return []; }
+  canWriteArticles() {
+    const u = this.state.authUser; if (!u) return false;
+    if (u.role === 'main') return true;
+    const me = (this.state.users || []).find(x => x.id === u.uid);
+    return !!(me && me.canWriteArticles);
+  }
+  todayYMD() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  openArticlesAdmin() { if (!this.canWriteArticles()) return; this.setState({ view: 'articlesAdmin' }); }
+  openArticleView(id) { this.setState({ view: 'articleView', articleViewId: id, menuOpen: false }); }
+  newArticle() {
+    if (!this.canWriteArticles()) return;
+    this.setState({ view: 'articleEdit', aEditId: null, aTitle: '', aSubtitle: '', aAuthor: (this.state.authUser && this.state.authUser.name) || '', aDate: this.todayYMD(), aTags: '', aFigureIds: [], aBody: '', aErr: '', aBusy: false, aPreview: false, aPreviewFull: false });
+  }
+  editArticle(id) {
+    const a = (this.state.articlesAll || []).find(x => x.id === id); if (!a) return;
+    this.setState({ view: 'articleEdit', aEditId: id, aTitle: a.title || '', aSubtitle: a.subtitle || '', aAuthor: a.author || '', aDate: a.date || this.todayYMD(), aTags: (a.tags || []).join(', '), aFigureIds: (a.figureIds && a.figureIds.length ? a.figureIds : (a.figureId ? [a.figureId] : [])), aBody: a.body || '', aErr: '', aBusy: false, aPreview: false, aPreviewFull: false });
+  }
+  async saveArticle(mode) {
+    const title = this.state.aTitle.trim();
+    if (!title) { this.setState({ aErr: 'A title is required.' }); return; }
+    const id = this.state.aEditId || ('art_' + Date.now());
+    const existing = (this.state.articlesAll || []).find(x => x.id === id);
+    const now = Date.now();
+    const fig = (this.state.figures || []).find(f => f.id === this.state.aFigureId);
+    const status = mode === 'publish' ? 'published' : (mode === 'draft' ? 'draft' : (existing ? existing.status : 'draft'));
+    const figureIds = (this.state.aFigureIds || []).filter(Boolean);
+    const figs = figureIds.map(fid => (this.state.figures || []).find(f => f.id === fid)).filter(Boolean);
+    const doc = {
+      id, title, subtitle: this.state.aSubtitle.trim(), author: this.state.aAuthor.trim(),
+      date: this.state.aDate || this.todayYMD(),
+      tags: this.state.aTags.split(',').map(t => t.trim()).filter(Boolean),
+      figureIds, figureNames: figs.map(f => f.name),
+      body: this.state.aBody, status,
+      created: existing ? (existing.created || now) : now, updated: now,
+    };
+    if (window.otFB && window.otFB.configured && window.otFB.setDoc) {
+      this.setState({ aBusy: true, aErr: '' });
+      try { await window.otFB.setDoc('articles/' + id, JSON.parse(JSON.stringify(doc))); this.setState({ view: 'articlesAdmin', aBusy: false }); }
+      catch (e) { this.setState({ aErr: this.niceErr(e), aBusy: false }); }
+      return;
+    }
+    const all = [doc, ...(this.state.articlesAll || []).filter(x => x.id !== id)];
+    this._persistArticlesLocal(all);
+    this.setState({ view: 'articlesAdmin' });
+  }
+  toggleArticleFigure(id) {
+    const cur = this.state.aFigureIds || [];
+    this.setState({ aFigureIds: cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id] });
+  }
+  articlePreviewEl() {
+    const s = this.state;
+    const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const dateLabel = s.aDate ? this.fmtYMD(s.aDate) : '';
+    const meta = [s.aAuthor && esc(s.aAuthor.trim()), dateLabel].filter(Boolean).join(' &middot; ');
+    const tags = s.aTags.split(',').map(t => t.trim()).filter(Boolean);
+    const figNames = (s.aFigureIds || []).map(id => (s.figures || []).find(f => f.id === id)).filter(Boolean).map(f => f.name);
+    let html = '';
+    if (meta) html += '<div style="display:flex;gap:12px;font-size:13.5px;color:var(--muted);margin-bottom:14px;">' + meta + '</div>';
+    html += '<h1 style="margin:0;font-family:\'IBM Plex Sans\',sans-serif;font-weight:700;font-size:34px;line-height:1.14;letter-spacing:-0.02em;">' + (esc(s.aTitle.trim()) || 'Untitled') + '</h1>';
+    if (s.aSubtitle.trim()) html += '<p style="margin:13px 0 0;font-size:19px;font-weight:600;line-height:1.35;color:var(--ink);">' + esc(s.aSubtitle.trim()) + '</p>';
+    if (tags.length) html += '<div style="display:flex;gap:12px;margin-top:16px;">' + tags.map(t => '<span style="color:var(--red);font-family:\'IBM Plex Mono\',monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;">' + esc(t) + '</span>').join('') + '</div>';
+    html += '<div style="margin-top:28px;">' + this.mdToHtml(s.aBody) + '</div>';
+    if (figNames.length) html += '<div style="margin-top:32px;padding-top:22px;border-top:1px solid var(--hair);"><div style="font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px;">Tracked figure' + (figNames.length > 1 ? 's' : '') + '</div><div style="display:flex;flex-wrap:wrap;gap:8px;">' + figNames.map(n => '<span style="display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border-radius:10px;border:1px solid var(--hair);background:var(--panel);font-weight:600;font-size:13px;">' + esc(n) + '</span>').join('') + '</div></div>';
+    return React.createElement('div', { dangerouslySetInnerHTML: { __html: html } });
+  }
+  toggleArticlePublish(id) {
+    const a = (this.state.articlesAll || []).find(x => x.id === id); if (!a) return;
+    const doc = { ...a, status: a.status === 'published' ? 'draft' : 'published', updated: Date.now() };
+    if (window.otFB && window.otFB.configured && window.otFB.setDoc) { window.otFB.setDoc('articles/' + id, JSON.parse(JSON.stringify(doc))).catch(() => {}); return; }
+    this._persistArticlesLocal((this.state.articlesAll || []).map(x => x.id === id ? doc : x));
+  }
+  deleteArticle(id) {
+    if (window.otFB && window.otFB.configured && window.otFB.deleteDoc) { window.otFB.deleteDoc('articles/' + id).catch(() => {}); this.setState({ confirmArticle: null }); return; }
+    this._persistArticlesLocal((this.state.articlesAll || []).filter(x => x.id !== id)); this.setState({ confirmArticle: null });
+  }
+  _persistArticlesLocal(all) {
+    const pub = all.filter(x => x.status === 'published').slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+    this.setState({ articlesAll: all, articlesPub: pub });
+    try { localStorage.setItem('ot_articles_all_v1', JSON.stringify(all)); localStorage.setItem('ot_articles_pub_v1', JSON.stringify(pub)); } catch (e) {}
+  }
+  toggleUserArticles(id) {
+    const u = (this.state.users || []).find(x => x.id === id); if (!u) return;
+    const next = !u.canWriteArticles;
+    if (window.otFB && window.otFB.configured && window.otFB.mergeDoc) window.otFB.mergeDoc('users/' + id, { canWriteArticles: next }).catch(() => {});
+    this.setState({ users: (this.state.users || []).map(x => x.id === id ? { ...x, canWriteArticles: next } : x) });
+  }
+  wrapBody(prefix, suffix, blockLevel) {
+    const el = this._bodyRef; const v = this.state.aBody;
+    if (!el) { this.setState({ aBody: v + prefix + suffix }); return; }
+    const s = el.selectionStart, e = el.selectionEnd;
+    const sel = v.slice(s, e);
+    const placeholder = blockLevel ? 'Heading' : (suffix ? 'text' : '');
+    const inner = sel || placeholder;
+    let pre = prefix;
+    if (blockLevel && s > 0 && v[s - 1] !== '\n') pre = '\n\n' + prefix;
+    const ins = pre + inner + suffix;
+    const nv = v.slice(0, s) + ins + v.slice(e);
+    this.setState({ aBody: nv });
+    const selStart = s + pre.length, selEnd = selStart + inner.length;
+    setTimeout(() => { try { el.focus(); el.selectionStart = selStart; el.selectionEnd = selEnd; } catch (er) {} }, 0);
+  }
+  mdToHtml(src) {
+    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const inline = (s) => esc(s)
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color:var(--red);text-decoration:none;border-bottom:1px solid var(--red);">$1</a>');
+    const blocks = String(src || '').split(/\n{2,}/);
+    let html = '';
+    for (let raw of blocks) {
+      const b = raw.trim(); if (!b) continue;
+      if (b.startsWith('### ')) html += '<h3 style="margin:26px 0 10px;font-family:\'Newsreader\',serif;font-weight:600;font-size:20px;line-height:1.25;">' + inline(b.slice(4)) + '</h3>';
+      else if (b.startsWith('## ')) html += '<h2 style="margin:32px 0 12px;font-family:\'Newsreader\',serif;font-weight:600;font-size:25px;line-height:1.2;">' + inline(b.slice(3)) + '</h2>';
+      else if (b.startsWith('> ')) html += '<blockquote style="margin:22px 0;padding:6px 0 6px 20px;border-left:3px solid var(--red);font-family:\'Newsreader\',serif;font-size:20px;font-style:italic;line-height:1.5;color:var(--ink);">' + inline(b.replace(/^> ?/gm, '')) + '</blockquote>';
+      else html += '<p style="margin:0 0 18px;font-size:17px;line-height:1.7;color:var(--ink);">' + inline(b).replace(/\n/g, '<br>') + '</p>';
+    }
+    return html || '<p style="color:var(--muted);font-size:14px;">Nothing to preview yet.</p>';
+  }
+  _articleSummary(a) {
+    if (!a) return '';
+    const firstBlock = String(a.body || '').split(/\n{2,}/).map(b => b.trim()).find(b => b && !b.startsWith('#') && !b.startsWith('>'));
+    if (!firstBlock) return '';
+    const plain = firstBlock.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/\s+/g, ' ').trim();
+    return plain.length > 200 ? plain.slice(0, 199) + '…' : plain;
+  }
   openFigureAdd() { this.setState({ fModalOpen: true, fEditId: null, fName: '', fRole: '', fCountry: '', fState: '', fCity: '', comboOpen: null, fPhoto: '', fPhotoFile: null, fPhotoPath: '', fBirth: '', fMilestones: [], fErr: '' }); }
   openFigureEdit(id) { const f = this.state.figures.find(x => x.id === id); if (!f) return; this.setState({ fModalOpen: true, fEditId: id, fName: f.name, fRole: f.role, fCountry: f.country || '', fState: f.state || '', fCity: f.city || '', comboOpen: null, fPhoto: f.photo || '', fPhotoFile: null, fPhotoPath: f.photoPath || '', fBirth: f.birth || '', fMilestones: (f.milestones || []).map(m => ({ ...m })), fErr: '' }); }
   pickCountry(name) { this.setState({ fCountry: name, fState: '', comboOpen: null }); }
@@ -1998,7 +2346,8 @@ class Component extends DCLogic {
   avatarBg(photo) { return photo ? 'position:absolute;inset:0;background-image:url("' + photo + '");background-size:cover;background-position:center;' : ''; }
 
   set(k, v) { this.setState({ [k]: v }); }
-  toggleTheme() { this.set('theme', this.state.theme === 'light' ? 'dark' : 'light'); }
+  toggleTheme() { const t = this.state.theme === 'light' ? 'dark' : 'light'; try { localStorage.setItem('ot_theme_v1', t); } catch (e) {} this.set('theme', t); }
+  loadTheme() { try { const t = localStorage.getItem('ot_theme_v1'); if (t === 'light' || t === 'dark') return t; } catch (e) {} return 'light'; }
   goHome() { this.setState({ view: 'home', personId: null, hoverId: null, pinnedId: null, highlight: [], typeFilter: 'all', statusFilter: 'all', metricView: 'reliability', zoom: 1 }); }
   goLogin() { this.setState({ view: 'login', authErr: '' }); }
   goAdmin() { this.setState({ view: 'admin' }); }
@@ -2007,7 +2356,9 @@ class Component extends DCLogic {
     if (this.state.authBusy) return;
     this.setState({ authBusy: true, authErr: '' });
     try {
-      await window.otFB.signIn(this.state.email.trim(), this.state.password);
+      const id = this.state.email.trim();
+      const loginId = id.includes('@') ? id : id.toLowerCase() + '@editors.orwellianthoughts.com';
+      await window.otFB.signIn(loginId, this.state.password);
     } catch (e) {
       if (e && e.code === 'auth/multi-factor-auth-required') {
         try {
@@ -2140,25 +2491,26 @@ class Component extends DCLogic {
     let p = ''; for (let i = 0; i < 12; i++) p += cs[Math.floor(Math.random() * cs.length)];
     return p.slice(0, 4) + '-' + p.slice(4, 8) + '-' + p.slice(8, 12);
   }
-  openCreate() { this.setState({ modal: { type: 'create' }, mName: '', mEmail: '', mRole: 'sub', modalErr: '' }); }
+  openCreate() { this.setState({ modal: { type: 'create' }, mName: '', mUser: '', mRole: 'sub', modalErr: '' }); }
   closeModal() { this.setState({ modal: null, modalErr: '' }); }
   async createUser() {
-    const name = this.state.mName.trim(), email = this.state.mEmail.trim();
-    if (!name || !email) { this.setState({ modalErr: 'Enter a name and an email address.' }); return; }
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { this.setState({ modalErr: 'Enter a valid email address.' }); return; }
-    if (this.state.users.some(u => u.email.toLowerCase() === email.toLowerCase())) { this.setState({ modalErr: 'An account with that email already exists.' }); return; }
+    const name = this.state.mName.trim(), username = this.state.mUser.trim().toLowerCase();
+    if (!name || !username) { this.setState({ modalErr: 'Enter a name and a username.' }); return; }
+    if (!/^[a-z0-9._-]{3,32}$/.test(username)) { this.setState({ modalErr: 'Username must be 3-32 characters using letters, numbers, dots, underscores, or hyphens.' }); return; }
+    if (this.state.users.some(u => (u.username || '').toLowerCase() === username)) { this.setState({ modalErr: 'An account with that username already exists.' }); return; }
     if (window.otFB && window.otFB.configured && window.otFB.hasFunctions) {
       this.setState({ modalErr: '', modalBusy: true });
       try {
-        const res = await window.otFB.call('createEditor', { name, email });
-        this.setState({ modal: { type: 'cred', title: 'Editor created', name, email, password: res.password }, modalErr: '', modalBusy: false });
+        const res = await window.otFB.call('createEditor', { name, username });
+        this.setState({ modal: { type: 'cred', title: 'Editor created', name, username, email: res.email, password: res.password }, modalErr: '', modalBusy: false });
       } catch (e) { this.setState({ modalErr: this.fnErr(e), modalBusy: false }); }
       return;
     }
     const password = this.genPassword();
-    const u = { id: 'u_' + Date.now(), name, email, role: 'sub', status: 'active', created: Date.now() };
+    const email = username + '@editors.orwellianthoughts.com';
+    const u = { id: 'u_' + Date.now(), name, username, email, role: 'sub', status: 'active', created: Date.now() };
     this.saveUsers([u, ...this.state.users]);
-    this.setState({ modal: { type: 'cred', title: 'Editor created', name, email, password }, modalErr: '' });
+    this.setState({ modal: { type: 'cred', title: 'Editor created', name, username, email, password }, modalErr: '' });
   }
   async resetPassword(id) {
     const u = this.state.users.find(x => x.id === id); if (!u) return;
@@ -2166,8 +2518,8 @@ class Component extends DCLogic {
       this.setState({ modalErr: '' });
       try {
         const res = await window.otFB.call('resetEditorPassword', { uid: id });
-        this.setState({ modal: { type: 'cred', title: 'Password reset', name: u.name, email: u.email, password: res.password } });
-      } catch (e) { this.setState({ modal: { type: 'cred', title: 'Reset failed', name: u.name, email: u.email, password: '', error: this.fnErr(e) } }); }
+        this.setState({ modal: { type: 'cred', title: 'Password reset', name: u.name, username: u.username, email: u.email, password: res.password } });
+      } catch (e) { this.setState({ modal: { type: 'cred', title: 'Reset failed', name: u.name, username: u.username, email: u.email, password: '', error: this.fnErr(e) } }); }
       return;
     }
     const password = this.genPassword();
@@ -2184,7 +2536,7 @@ class Component extends DCLogic {
   fnErr(e) {
     const m = (e && (e.message || e.details)) || '';
     if (/permission|unauthenticated|denied/i.test(m)) return 'Only the main administrator can manage editors.';
-    if (/already|exists/i.test(m)) return 'An account with that email already exists.';
+    if (/already|exists/i.test(m)) return 'An account with that username already exists.';
     if (/not-found|no user/i.test(m)) return 'That editor account was not found.';
     return m || 'The action could not be completed. Try again.';
   }
@@ -2328,6 +2680,10 @@ class Component extends DCLogic {
       onSaveSettings: () => this.saveOwnPassword(),
       onCloseSettings: () => this.setState({ settingsOpen: false }),
       isHome: s.view === 'home', isProfile: s.view === 'profile', isLogin: s.view === 'login', isAdmin: s.view === 'admin', isUsers: s.view === 'users', isFigures: s.view === 'figures', isFigureEdit: s.view === 'figureEdit', isAbout: s.view === 'about', isReview: s.view === 'review',
+      isArticles: s.view === 'articles', isArticleView: s.view === 'articleView', isArticlesAdmin: s.view === 'articlesAdmin', isArticleEdit: s.view === 'articleEdit',
+      goArticlesPublic: () => this.setState({ view: 'articles', menuOpen: false }),
+      goArticlesAdmin: () => this.openArticlesAdmin(),
+      canArticles: this.canWriteArticles(),
       goAbout: () => this.setState({ view: 'about' }),
       goUsers: () => this.setState(st => (st.authUser && st.authUser.role === 'main') ? { view: 'users' } : {}),
       goReview: () => this.setState({ view: 'review', draftErr: '' }),
@@ -2419,20 +2775,23 @@ class Component extends DCLogic {
       const q = s.userSearch.trim().toLowerCase();
       const rows = s.users
         .filter(u => s.roleFilter === 'all' || u.role === s.roleFilter)
-        .filter(u => !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || this.roleName(u.role).toLowerCase().includes(q))
-        .map(u => ({ id: u.id, name: u.name, email: u.email, roleLabel: this.roleName(u.role),
+        .filter(u => !q || u.name.toLowerCase().includes(q) || (u.username || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q) || this.roleName(u.role).toLowerCase().includes(q))
+        .map(u => ({ id: u.id, name: u.name, email: u.email, login: u.role === 'main' ? u.email : (u.username || u.email), roleLabel: this.roleName(u.role),
           roleStyle: (u.role === 'main' ? 'color:var(--red);border:1px solid var(--red);' : 'color:var(--muted);border:1px solid var(--hair);') + 'display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap;',
           createdLabel: this.fmtDate(u.created), confirming: s.confirmDelete === u.id, canDelete: u.role !== 'main', showActions: u.role !== 'main' && s.confirmDelete !== u.id,
+          articlesOn: !!u.canWriteArticles, articlesLabel: u.canWriteArticles ? 'Articles on' : 'Articles off',
+          articlesBtnStyle: 'display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:7px;font-family:\'IBM Plex Sans\',sans-serif;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;' + (u.canWriteArticles ? 'border:1px solid var(--red);background:var(--red-soft);color:var(--red);' : 'border:1px solid var(--hair);background:var(--panel);color:var(--muted);'),
+          onToggleArticles: () => this.toggleUserArticles(u.id),
           onReset: () => this.resetPassword(u.id), onDelete: () => this.setState({ confirmDelete: u.id }),
           onConfirm: () => this.deleteUser(u.id), onCancel: () => this.setState({ confirmDelete: null }) }));
       const tabs = [['all','All'],['main','Main admin'],['sub','Editors']].map(([k,l]) => ({ label: l, style: this.chipStyle(s.roleFilter === k), onClick: () => this.set('roleFilter', k) }));
       let modal = null;
-      if (s.modal && s.modal.type === 'create') modal = { create: true, name: s.mName, email: s.mEmail, role: s.mRole, err: s.modalErr,
-        onName: (e) => this.set('mName', e.target.value), onEmail: (e) => this.set('mEmail', e.target.value), onRole: (e) => this.set('mRole', e.target.value),
+      if (s.modal && s.modal.type === 'create') modal = { create: true, name: s.mName, username: s.mUser, role: s.mRole, err: s.modalErr,
+        onName: (e) => this.set('mName', e.target.value), onUsername: (e) => this.set('mUser', e.target.value), onRole: (e) => this.set('mRole', e.target.value),
         onSubmit: () => this.createUser(), onClose: () => this.closeModal() };
-      if (s.modal && s.modal.type === 'cred') { const m = s.modal; modal = { cred: true, title: m.title, cName: m.name, cEmail: m.email, cPass: m.password,
-        onCopyEmail: () => this.copyText(m.email, 'email'), onCopyPass: () => this.copyText(m.password, 'pass'),
-        onCopyBoth: () => this.copyText('Email: ' + m.email + '\nTemporary password: ' + m.password, 'both'),
+      if (s.modal && s.modal.type === 'cred') { const m = s.modal; const cId = m.username || m.email; modal = { cred: true, title: m.title, cName: m.name, cEmail: cId, cPass: m.password,
+        onCopyEmail: () => this.copyText(cId, 'email'), onCopyPass: () => this.copyText(m.password, 'pass'),
+        onCopyBoth: () => this.copyText('Username: ' + cId + '\nTemporary password: ' + m.password, 'both'),
         copyEmailLabel: s.copied === 'email' ? 'Copied' : 'Copy', copyPassLabel: s.copied === 'pass' ? 'Copied' : 'Copy', copyBothLabel: s.copied === 'both' ? 'Copied' : 'Copy both',
         onClose: () => this.closeModal() }; }
       return { ...base, users: rows, hasUsers: rows.length > 0, userSearch: s.userSearch, onUserSearch: (e) => this.set('userSearch', e.target.value),
@@ -2536,6 +2895,82 @@ class Component extends DCLogic {
         entryEmpty: at === 'claims' ? 'No claims yet. Use Add entry and pick Factual claim to log the first one.' : 'No promises yet. Use Add entry to log the first promise.',
         entryRows: rows, hasEntryRows: rows.length > 0, noEntryRows: rows.length === 0, onAddEntry: () => this.openEntryAdd(),
         showEntryModal: !!entryModal, entryModal };
+    }
+
+    if (s.view === 'articles') {
+      const list = (s.articlesPub || []).map(a => ({
+        id: a.id, title: a.title, subtitle: a.subtitle || '', hasSubtitle: !!(a.subtitle && a.subtitle.trim()),
+        summary: a.summary || a.subtitle || '', hasSummary: false,
+        author: a.author || '', hasAuthor: !!(a.author && a.author.trim()),
+        dateLabel: a.date ? this.fmtYMD(a.date) : '', tagList: a.tags || [], hasTags: (a.tags || []).length > 0,
+        onOpen: () => this.openArticleView(a.id),
+      }));
+      list.forEach((row, i) => { const a = (s.articlesPub || [])[i]; row.summary = this._articleSummary(a); row.hasSummary = !!row.summary; });
+      return { ...base, articleList: list, noArticles: list.length === 0 };
+    }
+
+    if (s.view === 'articleView') {
+      const a = (s.articlesPub || []).concat(s.articlesAll || []).find(x => x.id === s.articleViewId);
+      if (!a) return { ...base, hasArticle: false, articleMissing: true };
+      const av = {
+        title: a.title, subtitle: a.subtitle || '', hasSubtitle: !!(a.subtitle && a.subtitle.trim()),
+        author: a.author || '', hasAuthor: !!(a.author && a.author.trim()),
+        dateLabel: a.date ? this.fmtYMD(a.date) : '', tagList: a.tags || [], hasTags: (a.tags || []).length > 0,
+        figures: (a.figureIds && a.figureIds.length ? a.figureIds : (a.figureId ? [a.figureId] : [])).map(id => (s.figures || []).find(f => f.id === id)).filter(Boolean).map(f => ({ id: f.id, name: f.name, onOpen: () => this.setState({ view: 'profile', personId: f.id }) })),
+      };
+      av.hasFigures = av.figures.length > 0;
+      av.figuresLabel = av.figures.length > 1 ? 'Tracked figures' : 'Tracked figure';
+      const articleBody = React.createElement('div', { dangerouslySetInnerHTML: { __html: this.mdToHtml(a.body) } });
+      return { ...base, hasArticle: true, articleMissing: false, av, articleBody };
+    }
+
+    if (s.view === 'articlesAdmin') {
+      if (!this.canWriteArticles()) return { ...base };
+      const rows = (s.articlesAll || []).map(a => ({
+        id: a.id, title: a.title || 'Untitled', subtitle: a.subtitle || '', hasSubtitle: !!(a.subtitle && a.subtitle.trim()),
+        dateLabel: a.date ? this.fmtYMD(a.date) : '',
+        statusLabel: a.status === 'published' ? 'Published' : 'Draft',
+        statusStyle: 'display:inline-block;font-size:10.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;padding:3px 9px;border-radius:20px;' + (a.status === 'published' ? 'color:var(--green);background:var(--chip);' : 'color:var(--muted);background:var(--panel);border:1px solid var(--hair);'),
+        toggleLabel: a.status === 'published' ? 'Unpublish' : 'Publish',
+        confirming: s.confirmArticle === a.id, notConfirming: s.confirmArticle !== a.id,
+        onEdit: () => this.editArticle(a.id), onToggle: () => this.toggleArticlePublish(a.id),
+        onDelete: () => this.setState({ confirmArticle: a.id }), onConfirm: () => this.deleteArticle(a.id), onCancel: () => this.setState({ confirmArticle: null }),
+      }));
+      return { ...base, adminArticles: rows, noAdminArticles: rows.length === 0, onNewArticle: () => this.newArticle() };
+    }
+
+    if (s.view === 'articleEdit') {
+      if (!this.canWriteArticles()) return { ...base };
+      const existing = (s.articlesAll || []).find(x => x.id === s.aEditId);
+      const isPublished = !!(existing && existing.status === 'published');
+      const articleEditPreview = this.articlePreviewEl();
+      const toolBtn = "padding:6px 11px;border-radius:7px;border:1px solid var(--hair);background:var(--panel);color:var(--ink);font-family:'IBM Plex Sans',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;";
+      return { ...base,
+        aEditTitle: s.aEditId ? 'Edit article' : 'New article',
+        aTitle: s.aTitle, aSubtitle: s.aSubtitle, aAuthor: s.aAuthor, aDate: s.aDate, aTags: s.aTags, aBody: s.aBody, aErr: s.aErr,
+        onArticleTitle: (e) => this.set('aTitle', e.target.value),
+        onArticleSubtitle: (e) => this.set('aSubtitle', e.target.value),
+        onArticleAuthor: (e) => this.set('aAuthor', e.target.value),
+        onArticleDate: (e) => this.set('aDate', e.target.value),
+        onArticleTags: (e) => this.set('aTags', e.target.value),
+        onArticleBody: (e) => this.set('aBody', e.target.value),
+        figureOptions: (s.figures || []).map(f => ({ id: f.id, name: f.name, selected: (s.aFigureIds || []).includes(f.id), check: (s.aFigureIds || []).includes(f.id) ? '✓' : '', boxStyle: 'flex-shrink:0;width:18px;height:18px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1;' + ((s.aFigureIds || []).includes(f.id) ? 'background:var(--red);color:#fff;border:1px solid var(--red);' : 'background:var(--panel);color:transparent;border:1px solid var(--hair);'), onToggle: () => this.toggleArticleFigure(f.id) })),
+        hasFigureOptions: (s.figures || []).length > 0, noFigureOptions: (s.figures || []).length === 0,
+        figOpen: !!s.aFigOpen, onToggleFigOpen: () => this.setState({ aFigOpen: !s.aFigOpen }), onCloseFigOpen: () => this.setState({ aFigOpen: false }),
+        figureDropdownLabel: (() => { const sel = (s.figures || []).filter(f => (s.aFigureIds || []).includes(f.id)); return sel.length === 0 ? 'Select figures…' : (sel.length <= 2 ? sel.map(f => f.name).join(', ') : sel.length + ' figures selected'); })(),
+        figLabelStyle: (s.aFigureIds || []).length === 0 ? 'color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' : 'color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;',
+        bodyRef: (el) => { this._bodyRef = el; },
+        toolBtn,
+        onBodyH2: () => this.wrapBody('## ', '', true), onBodyH3: () => this.wrapBody('### ', '', true),
+        onBodyBold: () => this.wrapBody('**', '**', false), onBodyQuote: () => this.wrapBody('> ', '', true),
+        onBodyLink: () => this.wrapBody('[', '](https://)', false),
+        articleEditPreview,
+        onPreviewFull: () => this.setState({ aPreviewFull: true }), onClosePreviewFull: () => this.setState({ aPreviewFull: false }), showPreviewFull: !!s.aPreviewFull,
+        onCancelArticle: () => this.setState({ view: 'articlesAdmin' }),
+        onSaveDraft: () => this.saveArticle('draft'), saveDraftLabel: isPublished ? 'Save as draft' : 'Save draft',
+        onPublishArticle: () => this.saveArticle('publish'), publishLabel: isPublished ? 'Update' : 'Publish',
+        canUnpublish: isPublished, onUnpublishArticle: () => { this.toggleArticlePublish(s.aEditId); this.setState({ view: 'articlesAdmin' }); },
+      };
     }
 
     if (s.view === 'home') {

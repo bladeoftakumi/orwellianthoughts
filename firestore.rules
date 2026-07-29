@@ -24,6 +24,10 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         && userDoc().role == 'main';
     }
+    function canWriteArticles() {
+      return isMainAdmin()
+        || (isAdmin() && userDoc().get('canWriteArticles', false) == true);
+    }
 
     // Public record: anyone can read; only admins can write.
     match /figures/{figureId} {
@@ -40,6 +44,14 @@ service cloud.firestore {
     match /flags/{flagId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
+    }
+
+    // Editorial articles. Published articles are world-readable; drafts are only
+    // visible to admins. The main admin can always write; editors can write only
+    // if the main admin has granted them article access (canWriteArticles).
+    match /articles/{articleId} {
+      allow read: if resource.data.status == 'published' || isAdmin();
+      allow create, update, delete: if canWriteArticles();
     }
 
     // AI ingestion queue. NOT public. Any admin (main or sub) may read and
