@@ -28,6 +28,10 @@ async function requireMainAdmin(request) {
   return uid;
 }
 
+// Editors sign in with a username; Firebase Auth still needs an email, so we
+// synthesize one on this reserved internal domain. Editors never see or use it.
+const EDITOR_DOMAIN = 'editors.orwellianthoughts.com';
+
 function genPassword() {
   const cs = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
   let out = '';
@@ -40,22 +44,23 @@ function genPassword() {
 exports.createEditor = onCall(async (request) => {
   await requireMainAdmin(request);
   const name = String((request.data && request.data.name) || '').trim();
-  const email = String((request.data && request.data.email) || '').trim().toLowerCase();
+  const username = String((request.data && request.data.username) || '').trim().toLowerCase();
   if (!name) throw new HttpsError('invalid-argument', 'A name is required.');
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new HttpsError('invalid-argument', 'A valid email is required.');
+  if (!/^[a-z0-9._-]{3,32}$/.test(username)) throw new HttpsError('invalid-argument', 'Username must be 3-32 characters using letters, numbers, dots, underscores, or hyphens.');
+  const email = username + '@' + EDITOR_DOMAIN;
 
   const password = genPassword();
   let user;
   try {
     user = await auth.createUser({ email, password, displayName: name });
   } catch (e) {
-    if (e.code === 'auth/email-already-exists') throw new HttpsError('already-exists', 'An account with that email already exists.');
+    if (e.code === 'auth/email-already-exists') throw new HttpsError('already-exists', 'An account with that username already exists.');
     throw new HttpsError('internal', e.message || 'Could not create the account.');
   }
   await db.doc('users/' + user.uid).set({
-    name, email, role: 'sub', status: 'active', created: Date.now(),
+    name, username, email, role: 'sub', status: 'active', created: Date.now(),
   });
-  return { uid: user.uid, email, password };
+  return { uid: user.uid, username, email, password };
 });
 
 // Reset an editor's password. Returns a fresh temporary password.
