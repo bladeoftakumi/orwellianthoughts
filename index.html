@@ -2516,7 +2516,7 @@ class Component extends DCLogic {
   async createUser() {
     const name = this.state.mName.trim(), username = this.state.mUser.trim().toLowerCase();
     if (!name || !username) { this.setState({ modalErr: 'Enter a name and a username.' }); return; }
-    if (!/^[a-z0-9._-]{3,32}$/.test(username)) { this.setState({ modalErr: 'Username must be 3-32 characters using letters, numbers, dots, underscores, or hyphens.' }); return; }
+    if (!/^[a-z0-9._-]{3,32}$/.test(username)) { this.setState({ modalErr: 'Username must be 3-32 characters using letters, numbers, dots, underscores, or hyphens (no @).' }); return; }
     if (this.state.users.some(u => (u.username || '').toLowerCase() === username)) { this.setState({ modalErr: 'An account with that username already exists.' }); return; }
     if (window.otFB && window.otFB.configured && window.otFB.hasFunctions) {
       this.setState({ modalErr: '', modalBusy: true });

@@ -46,7 +46,7 @@ exports.createEditor = onCall(async (request) => {
   const name = String((request.data && request.data.name) || '').trim();
   const username = String((request.data && request.data.username) || '').trim().toLowerCase();
   if (!name) throw new HttpsError('invalid-argument', 'A name is required.');
-  if (!/^[a-z0-9._-]{3,32}$/.test(username)) throw new HttpsError('invalid-argument', 'Username must be 3-32 characters using letters, numbers, dots, underscores, or hyphens.');
+  if (!/^[a-z0-9._-]{3,32}$/.test(username)) throw new HttpsError('invalid-argument', 'Username must be 3-32 characters using letters, numbers, dots, underscores, or hyphens (no @).');
   const email = username + '@' + EDITOR_DOMAIN;
 
   const password = genPassword();
