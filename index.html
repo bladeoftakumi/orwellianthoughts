@@ -60,10 +60,7 @@
   if (configured) {
     try {
       const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
-      const { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence,
-        multiFactor, getMultiFactorResolver, updateProfile, sendEmailVerification, reload,
-        RecaptchaVerifier, PhoneAuthProvider, PhoneMultiFactorGenerator }
-        = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
+      const { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence, multiFactor, getMultiFactorResolver, updateProfile, sendEmailVerification, reload, RecaptchaVerifier, PhoneAuthProvider, PhoneMultiFactorGenerator } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
       const fs = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
       const st = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js");
       const fn = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
@@ -718,15 +715,62 @@
               </div>
             </sc-if>
 
-            <div style="display: flex; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--hair); align-items: center;">
+            <sc-if value="{{ d.editing }}" hint-placeholder-val="{{ false }}">
+              <div style="border-top: 1px solid var(--hair); padding: 18px 20px; background: var(--panel); display: flex; flex-direction: column; gap: 12px;">
+                <div style="font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600;">First-layer edits</div>
+                <sc-if value="{{ d.editHasFigure }}" hint-placeholder-val="{{ false }}">
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                      <label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Figure name</label>
+                      <input class="ot-inp" value="{{ d.editName }}" onInput="{{ d.onEditName }}" placeholder="Full name" />
+                    </div>
+                    <div>
+                      <label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Role / office</label>
+                      <input class="ot-inp" value="{{ d.editRole }}" onInput="{{ d.onEditRole }}" placeholder="Role or office" />
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-for list="{{ d.editEntries }}" as="ee" hint-placeholder-count="1">
+                  <div>
+                    <label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">{{ ee.label }}</label>
+                    <textarea value="{{ ee.claim }}" onInput="{{ ee.onClaim }}" style="width: 100%; min-height: 70px; padding: 12px; border-radius: 10px; border: 1px solid var(--hair); background: var(--surface); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; line-height: 1.55; outline: none; resize: vertical; box-sizing: border-box;"></textarea>
+                  </div>
+                </sc-for>
+                <div>
+                  <label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Reviewer note</label>
+                  <input class="ot-inp" value="{{ d.editNote }}" onInput="{{ d.onEditNote }}" placeholder="What you changed, or why this is ready" />
+                </div>
+                <div style="display: flex; gap: 10px;">
+                  <button onClick="{{ d.onSaveEdit }}" style="padding: 10px 16px; border-radius: 9px; border: 1px solid var(--red); background: var(--red); color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 13px; cursor: pointer;">Save changes</button>
+                  <button onClick="{{ d.onCancelEdit }}" style="padding: 10px 16px; border-radius: 9px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; cursor: pointer;">Cancel</button>
+                </div>
+              </div>
+            </sc-if>
+
+            <div style="display: flex; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--hair); align-items: center; flex-wrap: wrap;">
               <sc-if value="{{ d.confirming }}" hint-placeholder-val="{{ false }}">
                 <span style="flex: 1; font-size: 13px; color: var(--muted);">Discard this draft?</span>
                 <button onClick="{{ d.onRejectConfirm }}" style="padding: 9px 14px; border-radius: 9px; border: 1px solid var(--red); background: var(--red); color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 13px; cursor: pointer;">Discard</button>
                 <button onClick="{{ d.onCancel }}" style="padding: 9px 14px; border-radius: 9px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; cursor: pointer;">Keep</button>
               </sc-if>
               <sc-if value="{{ d.notConfirming }}" hint-placeholder-val="{{ true }}">
-                <button onClick="{{ d.onApprove }}" style="{{ d.approveStyle }}">Approve and publish</button>
-                <button onClick="{{ d.onReject }}" style="padding: 10px 16px; border-radius: 9px; border: 1px solid var(--hair); background: var(--panel); color: var(--red); font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 13px; cursor: pointer;">Reject</button>
+                <span style="{{ d.stageStyle }}">{{ d.stageLabel }}</span>
+                <div style="flex: 1;"></div>
+                <sc-if value="{{ d.canEdit }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ d.onEdit }}" style="padding: 10px 16px; border-radius: 9px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 13px; cursor: pointer;">{{ d.editLabel }}</button>
+                </sc-if>
+                <sc-if value="{{ d.canEndorse }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ d.onEndorse }}" style="padding: 10px 16px; border-radius: 9px; border: 1px solid var(--red); background: var(--red); color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 13px; cursor: pointer;">Endorse and send to admin</button>
+                </sc-if>
+                <sc-if value="{{ d.canApprove }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ d.onApprove }}" style="{{ d.approveStyle }}">Approve and publish</button>
+                </sc-if>
+                <sc-if value="{{ d.canReject }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ d.onReject }}" style="padding: 10px 16px; border-radius: 9px; border: 1px solid var(--hair); background: var(--panel); color: var(--red); font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 13px; cursor: pointer;">Reject</button>
+                </sc-if>
+                <sc-if value="{{ d.reviewOnly }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-size: 12.5px; color: var(--muted);">Waiting on a first-layer review by an agent admin.</span>
+                </sc-if>
               </sc-if>
             </div>
           </div>
@@ -778,9 +822,11 @@
                 <button onClick="{{ u.onCancel }}" style="padding: 6px 10px; border-radius: 7px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; cursor: pointer;">Cancel</button>
               </sc-if>
               <sc-if value="{{ u.showActions }}" hint-placeholder-val="{{ true }}">
-                <button onClick="{{ u.onToggleArticles }}" title="Grant or revoke Articles access" style="{{ u.articlesBtnStyle }}">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"></path><path d="M8 9h8M8 13h5"></path></svg>{{ u.articlesLabel }}
-                </button>
+                <sc-if value="{{ u.canToggleArticles }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ u.onToggleArticles }}" title="Grant or revoke Articles access" style="{{ u.articlesBtnStyle }}">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"></path><path d="M8 9h8M8 13h5"></path></svg>{{ u.articlesLabel }}
+                  </button>
+                </sc-if>
                 <button onClick="{{ u.onReset }}" title="Reset password" style="display: flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: 7px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="15" r="4"></circle><path d="M10.8 12.2 21 2m-4 0 3 3-3 3"></path></svg>Reset
                 </button>
@@ -990,7 +1036,7 @@
       <div style="width: 100%; max-width: 440px; background: var(--surface); border: 1px solid var(--hair); border-radius: 16px; padding: 26px; box-shadow: var(--shadow);">
         <sc-if value="{{ modalCreate }}" hint-placeholder-val="{{ false }}">
           <h2 style="margin: 0; font-family: 'Newsreader', serif; font-weight: 600; font-size: 23px;">Add user</h2>
-          <p style="margin: 7px 0 0; font-size: 13px; color: var(--muted); line-height: 1.5;">Create an editor account and generate a temporary password to share. Editors sign in with their username.</p>
+          <p style="margin: 7px 0 0; font-size: 13px; color: var(--muted); line-height: 1.5;">Create an account and generate a temporary password to share. They sign in with their username.</p>
           <div style="margin-top: 20px;">
             <label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Full name</label>
             <input class="ot-inp" value="{{ modal.name }}" onInput="{{ modal.onName }}" placeholder="Jane Editor" />
@@ -998,6 +1044,13 @@
           <div style="margin-top: 14px;">
             <label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Username</label>
             <input class="ot-inp" type="text" value="{{ modal.username }}" onInput="{{ modal.onUsername }}" placeholder="jane.editor" />
+          </div>
+          <div style="margin-top: 14px;">
+            <label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Account type</label>
+            <div style="display: flex; gap: 8px;">
+              <sc-for list="{{ modal.roleOptions }}" as="r" hint-placeholder-count="2"><button onClick="{{ r.onPick }}" style="{{ r.style }}">{{ r.label }}</button></sc-for>
+            </div>
+            <p style="margin: 8px 0 0; font-size: 12px; color: var(--muted); line-height: 1.5;">{{ modal.roleHint }}</p>
           </div>
           <sc-if value="{{ modal.err }}" hint-placeholder-val="{{ false }}"><div style="margin-top: 13px; font-size: 13px; color: var(--red);">{{ modal.err }}</div></sc-if>
           <div style="display: flex; gap: 10px; margin-top: 22px;">
@@ -1649,6 +1702,7 @@ class Component extends DCLogic {
       users: this.loadUsers(), userSearch: '', roleFilter: 'all', modal: null, modalErr: '', confirmDelete: null,
       mName: '', mUser: '', mRole: 'sub',
       menuOpen: false, settingsOpen: false, sNew: '', sConf: '', sErr: '', sDone: false, copied: null,
+      draftEditId: null, dfName: '', dfRole: '', dfEntries: [], dfNote: '',
       figures: this.loadFigures(), figSearch: '', editFigureId: null,
       flags: this.loadFlags(), flModalOpen: false, flEditId: null, flDraft: null, flErr: '', confirmFlag: null, pinnedFlag: null,
       drafts: this.loadDrafts(), draftOpenId: null, draftErr: '', draftBusy: false, confirmDraft: null,
@@ -1875,6 +1929,7 @@ class Component extends DCLogic {
   loadArticlesAll() { try { const r = JSON.parse(localStorage.getItem('ot_articles_all_v1')); if (Array.isArray(r)) return r; } catch (e) {} return []; }
   canWriteArticles() {
     const u = this.state.authUser; if (!u) return false;
+    if (u.role === 'agent' || u.role === 'alead') return false;
     if (u.role === 'main') return true;
     const me = (this.state.users || []).find(x => x.id === u.uid);
     return !!(me && me.canWriteArticles);
@@ -2022,6 +2077,13 @@ class Component extends DCLogic {
       catch (e) { this.setState({ fPhotoBusy: false, fErr: 'Photo upload failed. Check Storage rules and try again.' }); return; }
     }
     const removedPhoto = !this.state.fPhoto;
+    if (this.isAgent()) {
+      const figure = { id, name, role, country: this.state.fCountry.trim(), state: this.state.fState.trim(), city: this.state.fCity.trim(), photo, photoPath, birth: this.state.fBirth, milestones, monogram: this.monogramFor(name) };
+      const target = this.state.fEditId ? { mode: 'existing', figureId: this.state.fEditId } : { mode: 'new' };
+      this.submitForApproval({ figure, entries: [], flags: [] }, target, this.state.fEditId ? 'Edit to an existing figure' : 'New figure');
+      this.setState({ fModalOpen: false, fErr: '', fPhotoBusy: false, fPhotoFile: null });
+      return;
+    }
     let figs = this.state.figures.slice();
     if (this.state.fEditId) {
       figs = figs.map(f => f.id === this.state.fEditId ? { ...f, name, role, country: this.state.fCountry.trim(), state: this.state.fState.trim(), city: this.state.fCity.trim(), photo, photoPath, birth: this.state.fBirth, milestones, monogram: this.monogramFor(name) } : f);
@@ -2036,7 +2098,15 @@ class Component extends DCLogic {
     if (oldPath && oldPath !== photoPath && window.otFB && window.otFB.deletePhoto) window.otFB.deletePhoto(oldPath);
     this.setState({ fModalOpen: false, fErr: '', fPhotoBusy: false, fPhotoFile: null });
   }
-  deleteFigure(id) { const f = this.state.figures.find(x => x.id === id); if (f && f.photoPath && window.otFB && window.otFB.deletePhoto) window.otFB.deletePhoto(f.photoPath); this.saveFigures(this.state.figures.filter(f => f.id !== id)); this.setState({ confirmFig: null }); }
+  deleteFigure(id) {
+    if (this.isAgent()) {
+      const f = this.state.figures.find(x => x.id === id);
+      this.submitForApproval({ entries: [], flags: [], removeFigure: { id, name: (f && f.name) || '' } },
+        { mode: 'existing', figureId: id, deleteFigure: true }, 'Request to remove a figure');
+      this.setState({ confirmFig: null });
+      return;
+    }
+    const f = this.state.figures.find(x => x.id === id); if (f && f.photoPath && window.otFB && window.otFB.deletePhoto) window.otFB.deletePhoto(f.photoPath); this.saveFigures(this.state.figures.filter(f => f.id !== id)); this.setState({ confirmFig: null }); }
   buildFigModal() {
     const s = this.state;
     if (!s.fModalOpen) return null;
@@ -2113,6 +2183,14 @@ class Component extends DCLogic {
     const tags = d.tags.split(',').map(t => t.trim()).filter(Boolean);
     let rec = { category: d.category || 'promise', type: d.type, tags, claim: d.claim.trim(), context: d.context.trim(), updates };
     if (window.otSchema) rec = window.otSchema.normEntry(rec);
+    if (this.isAgent()) {
+      const entry = this.state.eEditId ? { ...rec, id: this.state.eEditId } : { ...rec, id: 'e_' + Date.now() };
+      const target = { mode: 'existing', figureId: this.state.editFigureId };
+      if (this.state.eEditId) target.replaceEntryId = this.state.eEditId;
+      this.submitForApproval({ entries: [entry], flags: [] }, target, this.state.eEditId ? 'Edit to an existing entry' : 'New entry');
+      this.setState({ eModalOpen: false, eErr: '' });
+      return;
+    }
     const figs = this.state.figures.map(f => {
       if (f.id !== this.state.editFigureId) return f;
       let entries;
@@ -2124,6 +2202,14 @@ class Component extends DCLogic {
     this.setState({ eModalOpen: false, eErr: '' });
   }
   deleteEntry(entryId) {
+    if (this.isAgent()) {
+      const fig = this.state.figures.find(f => f.id === this.state.editFigureId);
+      const ent = fig && (fig.entries || []).find(e => e.id === entryId);
+      this.submitForApproval({ entries: [], flags: [], removeEntry: { id: entryId, claim: (ent && ent.claim) || '' } },
+        { mode: 'existing', figureId: this.state.editFigureId, deleteEntryId: entryId }, 'Request to remove an entry');
+      this.setState({ confirmEntry: null });
+      return;
+    }
     const figs = this.state.figures.map(f => f.id === this.state.editFigureId ? { ...f, entries: f.entries.filter(e => e.id !== entryId) } : f);
     this.saveFigures(figs); this.setState({ confirmEntry: null });
   }
@@ -2178,20 +2264,38 @@ class Component extends DCLogic {
       publishSentence: (d.sentenceEdited && d.publishSentence.trim()) ? d.publishSentence.trim() : this.composeSentence(d),
       reviewedBy: who, reviewedAt: new Date().toISOString().slice(0, 10) };
     if (window.otSchema) { const nf = window.otSchema.normFlag(rec); rec = { ...nf, reviewedBy: who, reviewedAt: rec.reviewedAt }; }
+    if (this.isAgent()) {
+      this.submitForApproval({ entries: [], flags: [{ ...rec, id: 'fl_' + Date.now() }] }, { mode: 'existing', figureId: d.figureId }, 'Doublethink flag');
+      this.setState({ flModalOpen: false, flErr: '' });
+      return;
+    }
     let flags;
     if (this.state.flEditId) flags = (this.state.flags || []).map(f => f.id === this.state.flEditId ? { ...rec, id: f.id } : f);
     else flags = [{ ...rec, id: 'fl_' + Date.now() }, ...(this.state.flags || [])];
     this.saveFlags(flags);
     this.setState({ flModalOpen: false, flErr: '' });
   }
-  deleteFlag(id) { this.saveFlags((this.state.flags || []).filter(f => f.id !== id)); this.setState({ confirmFlag: null }); }
+  deleteFlag(id) { if (this.isAgent()) return; this.saveFlags((this.state.flags || []).filter(f => f.id !== id)); this.setState({ confirmFlag: null }); }
 
   draftValidation(d) {
     if (!d) return { ok: false, errors: ['Draft not found.'], value: null };
-    if (window.otSchema) return window.otSchema.validatePayload(d.payload || {}, { requireSources: true });
-    return { ok: true, errors: [], value: d.payload || {} };
+    const p = d.payload || {};
+    // A removal request carries no content to validate.
+    if (d.target && (d.target.deleteEntryId || d.target.deleteFigure)) return { ok: true, errors: [], value: p };
+    // A figure-only submission (an agent editing figure details) has no entries
+    // to validate against the entry schema; accept it on its own terms.
+    if (p.figure && !(p.entries || []).length && !(p.flags || []).length) {
+      return p.figure.name && String(p.figure.name).trim()
+        ? { ok: true, errors: [], value: p }
+        : { ok: false, errors: ['The figure needs a name.'], value: p };
+    }
+    if (window.otSchema) return window.otSchema.validatePayload(p, { requireSources: true });
+    return { ok: true, errors: [], value: p };
   }
   approveDraft(id) {
+    if (!this.canApproveDrafts()) { this.setState({ draftErr: 'Only an administrator can approve drafts.' }); return; }
+    const dd = (this.state.drafts || []).find(x => x.id === id);
+    if (dd && this.draftStage(dd) !== 'endorsed' && this.state.authUser.role !== 'main') { this.setState({ draftErr: 'This draft still needs a first-layer review by an agent admin.' }); return; }
     const d = (this.state.drafts || []).find(x => x.id === id); if (!d) return;
     const res = this.draftValidation(d);
     if (!res.ok) { this.setState({ draftErr: res.errors[0] || 'This draft does not meet the schema.' }); return; }
@@ -2200,9 +2304,24 @@ class Component extends DCLogic {
     let figs = this.state.figures.slice();
     let newFlags = (this.state.flags || []).slice();
     let targetId;
-    if (d.target && d.target.mode === 'existing' && d.target.figureId) {
+    if (d.target && d.target.deleteFigure && d.target.figureId) {
+      const gone = figs.find(f => f.id === d.target.figureId);
+      if (gone && gone.photoPath && window.otFB && window.otFB.deletePhoto) window.otFB.deletePhoto(gone.photoPath);
+      figs = figs.filter(f => f.id !== d.target.figureId);
+    } else if (d.target && d.target.mode === 'existing' && d.target.figureId) {
       targetId = d.target.figureId;
-      figs = figs.map(f => f.id === targetId ? { ...f, entries: [...(p.entries || []), ...f.entries] } : f);
+      const delId = d.target.deleteEntryId;
+      const replaceId = d.target.replaceEntryId;
+      figs = figs.map(f => {
+        if (f.id !== targetId) return f;
+        let entries = f.entries || [];
+        if (delId) entries = entries.filter(e => e.id !== delId);
+        else if (replaceId) {
+          const rep = (p.entries || [])[0];
+          entries = rep ? entries.map(e => e.id === replaceId ? { ...rep, id: replaceId } : e) : entries;
+        } else entries = [...(p.entries || []), ...entries];
+        return { ...f, ...(p.figure ? { name: p.figure.name || f.name, role: p.figure.role || f.role, country: p.figure.country, state: p.figure.state, city: p.figure.city, photo: p.figure.photo, photoPath: p.figure.photoPath, birth: p.figure.birth, milestones: p.figure.milestones || f.milestones, monogram: p.figure.monogram || f.monogram } : {}), id: f.id, entries };
+      });
     } else if (p.figure) {
       const nf = window.otSchema ? window.otSchema.normFigure({ ...p.figure, entries: p.entries || [] }) : { ...p.figure, id: 'f_' + Date.now(), entries: p.entries || [] };
       targetId = nf.id;
@@ -2220,6 +2339,7 @@ class Component extends DCLogic {
     clearTimeout(this._sm); this._sm = setTimeout(() => this.setState({ starMsg: '' }), 2800);
   }
   rejectDraft(id) {
+    if (!this.canApproveDrafts() && !this.isAgentLead()) { this.setState({ draftErr: 'Only a reviewer can reject drafts.' }); return; }
     this.saveDrafts((this.state.drafts || []).filter(x => x.id !== id));
     if (window.otFB && window.otFB.configured && window.otFB.deleteDoc) { window.otFB.deleteDoc('drafts/' + id).catch(() => {}); }
     this.setState({ draftOpenId: null, draftErr: '' });
@@ -2502,7 +2622,50 @@ class Component extends DCLogic {
     try { await window.otFB.signOutUser(); } catch (e) {}
     this.setState({ view: 'home', email: '', password: '', authUser: null });
   }
-  roleName(r) { return r === 'main' ? 'Main admin' : 'Editor'; }
+  roleName(r) { return r === 'main' ? 'Main admin' : (r === 'agent' ? 'Agent' : (r === 'alead' ? 'Agent admin' : 'Editor')); }
+  isAgent() { const u = this.state.authUser; return !!(u && (u.role === 'agent' || u.role === 'alead')); }
+  isAgentLead() { const u = this.state.authUser; return !!(u && u.role === 'alead'); }
+  draftStage(d) { return (d && d.stage) === 'endorsed' ? 'endorsed' : 'submitted'; }
+  canApproveDrafts() { const u = this.state.authUser; return !!(u && (u.role === 'main' || u.role === 'sub')); }
+  endorseDraft(id) {
+    if (!this.isAgentLead()) return;
+    const who = this.state.authUser ? (this.state.authUser.username || this.state.authUser.name || 'agent admin') : 'agent admin';
+    const next = (this.state.drafts || []).map(x => x.id === id ? { ...x, stage: 'endorsed', endorsedBy: who, endorsedAt: Date.now() } : x);
+    this.saveDrafts(next);
+    const d = next.find(x => x.id === id);
+    if (d && window.otFB && window.otFB.configured && window.otFB.setDoc) window.otFB.setDoc('drafts/' + id, JSON.parse(JSON.stringify(d))).catch(() => {});
+    this.setState({ draftEditId: null, starMsg: 'Endorsed. Sent to the administrators for final approval.' });
+    clearTimeout(this._sm); this._sm = setTimeout(() => this.setState({ starMsg: '' }), 3000);
+  }
+  openDraftEdit(id) {
+    const d = (this.state.drafts || []).find(x => x.id === id); if (!d) return;
+    const p = d.payload || {};
+    this.setState({ draftEditId: id, dfName: (p.figure && p.figure.name) || '', dfRole: (p.figure && p.figure.role) || '',
+      dfEntries: (p.entries || []).map(e => e.claim || ''), dfNote: d.note || '' });
+  }
+  saveDraftEdit(id) {
+    const d = (this.state.drafts || []).find(x => x.id === id); if (!d) return;
+    const p = d.payload || {};
+    const who = this.state.authUser ? (this.state.authUser.username || this.state.authUser.name || 'agent admin') : 'agent admin';
+    const payload = { ...p,
+      figure: p.figure ? { ...p.figure, name: this.state.dfName.trim() || p.figure.name, role: this.state.dfRole.trim() } : p.figure,
+      entries: (p.entries || []).map((e, i) => ({ ...e, claim: (this.state.dfEntries[i] || e.claim || '').trim() })) };
+    const next = (this.state.drafts || []).map(x => x.id === id ? { ...x, payload, note: this.state.dfNote.trim(), editedBy: who, editedAt: Date.now() } : x);
+    this.saveDrafts(next);
+    const nd = next.find(x => x.id === id);
+    if (nd && window.otFB && window.otFB.configured && window.otFB.setDoc) window.otFB.setDoc('drafts/' + id, JSON.parse(JSON.stringify(nd))).catch(() => {});
+    this.setState({ draftEditId: null, starMsg: 'Changes saved to the draft.' });
+    clearTimeout(this._sm); this._sm = setTimeout(() => this.setState({ starMsg: '' }), 2600);
+  }
+  submitForApproval(payload, target, note) {
+    const who = this.state.authUser ? (this.state.authUser.username || this.state.authUser.email || this.state.authUser.name || 'agent') : 'agent';
+    const id = 'dr_' + Date.now();
+    const draft = { id, source: 'agent', submittedBy: who, note: note || '', created: Date.now(), stage: 'submitted', target: target || { mode: 'new' }, payload };
+    this.saveDrafts([draft, ...(this.state.drafts || [])]);
+    if (window.otFB && window.otFB.configured && window.otFB.setDoc) window.otFB.setDoc('drafts/' + id, JSON.parse(JSON.stringify(draft))).catch(() => {});
+    this.setState({ starMsg: 'Submitted for approval. An administrator will review it.' });
+    clearTimeout(this._sm); this._sm = setTimeout(() => this.setState({ starMsg: '' }), 3200);
+  }
   fmtDate(ts) { const d = new Date(ts); return this.MON[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear(); }
   fmtYMD(str) { const p = String(str).split('-'); return this.MON[(+p[1]) - 1] + ' ' + (+p[2]) + ', ' + p[0]; }
   saveUsers(users) { this.setState({ users }); try { localStorage.setItem('ot_users_v1', JSON.stringify(users)); } catch (e) {} }
@@ -2516,21 +2679,22 @@ class Component extends DCLogic {
   async createUser() {
     const name = this.state.mName.trim(), username = this.state.mUser.trim().toLowerCase();
     if (!name || !username) { this.setState({ modalErr: 'Enter a name and a username.' }); return; }
-    if (!/^[a-z0-9._-]{3,32}$/.test(username)) { this.setState({ modalErr: 'Username must be 3-32 characters using letters, numbers, dots, underscores, or hyphens.' }); return; }
+    if (!/^[a-z0-9._-]{3,32}$/.test(username)) { this.setState({ modalErr: 'Username must be 3-32 characters using letters, numbers, dots, underscores, or hyphens (no @).' }); return; }
     if (this.state.users.some(u => (u.username || '').toLowerCase() === username)) { this.setState({ modalErr: 'An account with that username already exists.' }); return; }
+    const title = (this.state.mRole === 'agent' ? 'Agent created' : (this.state.mRole === 'alead' ? 'Agent admin created' : 'Editor created'));
     if (window.otFB && window.otFB.configured && window.otFB.hasFunctions) {
       this.setState({ modalErr: '', modalBusy: true });
       try {
-        const res = await window.otFB.call('createEditor', { name, username });
-        this.setState({ modal: { type: 'cred', title: 'Editor created', name, username, email: res.email, password: res.password }, modalErr: '', modalBusy: false });
+        const res = await window.otFB.call('createEditor', { name, username, role: this.state.mRole });
+        this.setState({ modal: { type: 'cred', title, name, username, email: res.email, password: res.password }, modalErr: '', modalBusy: false });
       } catch (e) { this.setState({ modalErr: this.fnErr(e), modalBusy: false }); }
       return;
     }
     const password = this.genPassword();
     const email = username + '@editors.orwellianthoughts.com';
-    const u = { id: 'u_' + Date.now(), name, username, email, role: 'sub', status: 'active', created: Date.now() };
+    const u = { id: 'u_' + Date.now(), name, username, email, role: this.state.mRole, status: 'active', created: Date.now() };
     this.saveUsers([u, ...this.state.users]);
-    this.setState({ modal: { type: 'cred', title: 'Editor created', name, username, email, password }, modalErr: '' });
+    this.setState({ modal: { type: 'cred', title, name, username, email, password }, modalErr: '' });
   }
   async resetPassword(id) {
     const u = this.state.users.find(x => x.id === id); if (!u) return;
@@ -2709,6 +2873,7 @@ class Component extends DCLogic {
       goReview: () => this.setState({ view: 'review', draftErr: '' }),
       draftCount: (s.drafts || []).length, hasPendingDrafts: (s.drafts || []).length > 0,
       isMain: !!(s.authUser && s.authUser.role === 'main'),
+      isAgentUser: this.isAgent(),
       goFigures: () => this.openFigures(),
       showFooter: s.view === 'home' || s.view === 'profile',
       loggedIn: !!s.authUser, loggedOut: !s.authUser,
@@ -2767,14 +2932,20 @@ class Component extends DCLogic {
         const flags = p.flags || [];
         const sourceCount = entries.reduce((a, e) => a + (e.updates || []).reduce((b, u) => b + (u.sources || []).length, 0), 0) + flags.reduce((a, f) => a + ((f.caseA && f.caseA.sources) || []).length + ((f.caseB && f.caseB.sources) || []).length, 0);
         const res = this.draftValidation(d);
+        const isMain = this.canApproveDrafts();
+        const stage = this.draftStage(d);
+        const endorsed = stage === 'endorsed';
+        const lead = this.isAgentLead();
+        const mainAdmin = !!(s.authUser && s.authUser.role === 'main');
+        const editing = s.draftEditId === d.id;
         const open = s.draftOpenId === d.id;
         const previewEntries = entries.map(e => { const ups = (e.updates || []).slice().sort((a, b) => String(a.date).localeCompare(String(b.date))); const last = ups[ups.length - 1] || {}; const sm = this.statusMap[last.status] || { label: last.status || '—', text: 'color:var(--muted);background:var(--chip);' };
           return { catLabel: (e.category === 'claim' ? 'Claim' : 'Promise'), claim: e.claim, statusLabel: sm.label,
             statusStyle: sm.text + 'display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;',
             updateLabel: ups.length + (ups.length === 1 ? ' update' : ' updates'),
             sourceLabel: ((last.sources || []).length) + ' source' + ((last.sources || []).length === 1 ? '' : 's') }; });
-        return { id: d.id, kindLabel: d.target && d.target.mode === 'existing' ? 'Add to figure' : 'New figure',
-          sourceLabel: d.source === 'agent' ? 'Research agent' : (d.source || 'agent'), timeLabel: this.fmtDate(d.createdAt || Date.now()),
+        return { id: d.id, kindLabel: (d.target && d.target.deleteFigure) ? 'Remove figure' : ((d.target && d.target.deleteEntryId) ? 'Remove entry' : ((d.target && d.target.replaceEntryId) ? 'Edit entry' : (d.target && d.target.mode === 'existing' ? 'Add to figure' : 'New figure'))),
+          sourceLabel: d.submittedBy ? ('Submitted by ' + d.submittedBy) : (d.source === 'agent' ? 'Research agent' : (d.source || 'agent')), timeLabel: this.fmtDate(d.createdAt || d.created || Date.now()),
           title: d.title || (p.figure && p.figure.name) || 'Untitled draft', summary: cap(d.summary || '', 160),
           entryCount: entries.length, flagCount: flags.length, sourceCount,
           validLabel: res.ok ? 'Meets contract' : (res.errors.length + ' issue' + (res.errors.length === 1 ? '' : 's')),
@@ -2783,6 +2954,17 @@ class Component extends DCLogic {
           open, toggleLabel: open ? 'Hide detail' : 'View detail', onToggle: () => this.openDraft(d.id),
           previewEntries, hasFlags: flags.length > 0, flagLine: flags.length + ' doublethink flag' + (flags.length === 1 ? '' : 's') + ' included',
           confirming: s.confirmDraft === d.id, notConfirming: s.confirmDraft !== d.id,
+          canApprove: isMain && (endorsed || mainAdmin), canReject: isMain || lead,
+          canEndorse: lead && !endorsed, canEdit: lead && !endorsed, editLabel: editing ? 'Editing…' : 'Edit',
+          reviewOnly: isMain && !endorsed && !mainAdmin,
+          stageLabel: endorsed ? 'Reviewed by agent admin' : 'Awaiting first review',
+          stageStyle: 'font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;padding:3px 9px;border-radius:20px;' + (endorsed ? 'color:var(--green);background:var(--chip);' : 'color:var(--muted);background:var(--panel);border:1px solid var(--hair);'),
+          editing, editHasFigure: !!(d.payload && d.payload.figure),
+          editName: s.dfName, editRole: s.dfRole, editNote: s.dfNote,
+          editEntries: (s.dfEntries || []).map((c, i) => ({ label: 'Entry ' + (i + 1) + ' — promise or claim', claim: c, onClaim: (e) => this.setState(st => ({ dfEntries: st.dfEntries.map((x, j) => j === i ? e.target.value : x) })) })),
+          onEditName: (e) => this.set('dfName', e.target.value), onEditRole: (e) => this.set('dfRole', e.target.value), onEditNote: (e) => this.set('dfNote', e.target.value),
+          onEdit: () => this.openDraftEdit(d.id), onSaveEdit: () => this.saveDraftEdit(d.id), onCancelEdit: () => this.setState({ draftEditId: null }),
+          onEndorse: () => this.endorseDraft(d.id),
           onApprove: () => this.approveDraft(d.id), onReject: () => this.setState({ confirmDraft: d.id }),
           onRejectConfirm: () => { this.rejectDraft(d.id); this.setState({ confirmDraft: null }); }, onCancel: () => this.setState({ confirmDraft: null }),
           approveStyle: 'padding:10px 16px;border-radius:9px;border:1px solid var(--red);font-family:\'IBM Plex Sans\',sans-serif;font-weight:600;font-size:13px;cursor:pointer;' + (res.ok ? 'background:var(--red);color:#fff;' : 'background:var(--chip);color:var(--muted);border-color:var(--hair);') };
@@ -2797,16 +2979,18 @@ class Component extends DCLogic {
         .filter(u => s.roleFilter === 'all' || u.role === s.roleFilter)
         .filter(u => !q || u.name.toLowerCase().includes(q) || (u.username || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q) || this.roleName(u.role).toLowerCase().includes(q))
         .map(u => ({ id: u.id, name: u.name, email: u.email, login: u.role === 'main' ? u.email : (u.username || u.email), roleLabel: this.roleName(u.role),
-          roleStyle: (u.role === 'main' ? 'color:var(--red);border:1px solid var(--red);' : 'color:var(--muted);border:1px solid var(--hair);') + 'display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap;',
+          roleStyle: (u.role === 'main' ? 'color:var(--red);border:1px solid var(--red);' : (u.role === 'agent' ? 'color:var(--green);border:1px solid var(--green);' : 'color:var(--muted);border:1px solid var(--hair);')) + 'display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap;',
           createdLabel: this.fmtDate(u.created), confirming: s.confirmDelete === u.id, canDelete: u.role !== 'main', showActions: u.role !== 'main' && s.confirmDelete !== u.id,
-          articlesOn: !!u.canWriteArticles, articlesLabel: u.canWriteArticles ? 'Articles on' : 'Articles off',
+          articlesOn: !!u.canWriteArticles, articlesLabel: u.canWriteArticles ? 'Articles on' : 'Articles off', canToggleArticles: u.role === 'sub',
           articlesBtnStyle: 'display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:7px;font-family:\'IBM Plex Sans\',sans-serif;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;' + (u.canWriteArticles ? 'border:1px solid var(--red);background:var(--red-soft);color:var(--red);' : 'border:1px solid var(--hair);background:var(--panel);color:var(--muted);'),
           onToggleArticles: () => this.toggleUserArticles(u.id),
           onReset: () => this.resetPassword(u.id), onDelete: () => this.setState({ confirmDelete: u.id }),
           onConfirm: () => this.deleteUser(u.id), onCancel: () => this.setState({ confirmDelete: null }) }));
-      const tabs = [['all','All'],['main','Main admin'],['sub','Editors']].map(([k,l]) => ({ label: l, style: this.chipStyle(s.roleFilter === k), onClick: () => this.set('roleFilter', k) }));
+      const tabs = [['all','All'],['main','Main admin'],['sub','Editors'],['alead','Agent admins'],['agent','Agents']].map(([k,l]) => ({ label: l, style: this.chipStyle(s.roleFilter === k), onClick: () => this.set('roleFilter', k) }));
       let modal = null;
       if (s.modal && s.modal.type === 'create') modal = { create: true, name: s.mName, username: s.mUser, role: s.mRole, err: s.modalErr,
+        roleOptions: [['sub','Editor'],['alead','Agent admin'],['agent','Agent']].map(([k,l]) => ({ label: l, style: "padding:8px 14px;border-radius:9px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;" + (s.mRole === k ? 'border:1px solid var(--red);background:var(--red-soft);color:var(--red);' : 'border:1px solid var(--hair);background:var(--panel);color:var(--ink);'), onPick: () => this.set('mRole', k) })),
+        roleHint: s.mRole === 'agent' ? 'Agents research and submit figures, entries, and flags, but nothing they submit goes public until it is reviewed and approved.' : (s.mRole === 'alead' ? 'Agent admins are the first layer of review: they check what agents submit, can edit it, then endorse it for an administrator to publish. They cannot publish themselves.' : 'Editors publish directly to the public record and give final approval to endorsed drafts.'),
         onName: (e) => this.set('mName', e.target.value), onUsername: (e) => this.set('mUser', e.target.value), onRole: (e) => this.set('mRole', e.target.value),
         onSubmit: () => this.createUser(), onClose: () => this.closeModal() };
       if (s.modal && s.modal.type === 'cred') { const m = s.modal; const cId = m.username || m.email; modal = { cred: true, title: m.title, cName: m.name, cEmail: cId, cPass: m.password,

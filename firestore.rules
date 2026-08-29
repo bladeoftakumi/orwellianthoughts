@@ -19,6 +19,16 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         && userDoc().role in ['main', 'sub'];
     }
+    function isAgent() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && userDoc().role in ['agent', 'alead'];
+    }
+    function isAgentLead() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && userDoc().role == 'alead';
+    }
     function isMainAdmin() {
       return signedIn()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
@@ -57,9 +67,13 @@ service cloud.firestore {
     // AI ingestion queue. NOT public. Any admin (main or sub) may read and
     // review; the ingestion agent writes here via the Admin SDK (which bypasses
     // these rules). Admins update status (approve/reject) and delete.
+    // Admins (main or sub) give final approval. Agent admins are the first
+    // layer: they may edit and endorse drafts but never publish. Agents submit.
     match /drafts/{draftId} {
-      allow read, update, delete: if isAdmin();
-      allow create: if isAdmin();
+      allow read: if isAdmin() || isAgent();
+      allow create: if isAdmin() || isAgent();
+      allow update: if isAdmin() || isAgentLead();
+      allow delete: if isAdmin() || isAgentLead();
     }
 
     // Instance bootstrap flag. World-readable so the app knows whether the
@@ -77,7 +91,7 @@ service cloud.firestore {
     // Only the main admin can create, edit, or remove editor records
     // (this is what gates who is allowed to add entries).
     match /users/{uid} {
-      allow read: if isAdmin();
+      allow read: if isAdmin() || isAgent();
       // One-time claim: if no bootstrap exists yet, a signed-in account may
       // create ITS OWN user doc as the main admin. After that, only the main
       // admin can create or change editor records.

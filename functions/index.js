@@ -46,7 +46,9 @@ exports.createEditor = onCall(async (request) => {
   const name = String((request.data && request.data.name) || '').trim();
   const username = String((request.data && request.data.username) || '').trim().toLowerCase();
   if (!name) throw new HttpsError('invalid-argument', 'A name is required.');
-  if (!/^[a-z0-9._-]{3,32}$/.test(username)) throw new HttpsError('invalid-argument', 'Username must be 3-32 characters using letters, numbers, dots, underscores, or hyphens.');
+  if (!/^[a-z0-9._-]{3,32}$/.test(username)) throw new HttpsError('invalid-argument', 'Username must be 3-32 characters using letters, numbers, dots, underscores, or hyphens (no @).');
+  const role = String((request.data && request.data.role) || 'sub').trim();
+  if (role !== 'sub' && role !== 'agent' && role !== 'alead') throw new HttpsError('invalid-argument', 'Role must be an editor, an agent admin, or an agent.');
   const email = username + '@' + EDITOR_DOMAIN;
 
   const password = genPassword();
@@ -58,9 +60,9 @@ exports.createEditor = onCall(async (request) => {
     throw new HttpsError('internal', e.message || 'Could not create the account.');
   }
   await db.doc('users/' + user.uid).set({
-    name, username, email, role: 'sub', status: 'active', created: Date.now(),
+    name, username, email, role, status: 'active', created: Date.now(),
   });
-  return { uid: user.uid, username, email, password };
+  return { uid: user.uid, username, email, password, role };
 });
 
 // Reset an editor's password. Returns a fresh temporary password.
