@@ -10,7 +10,7 @@
     "runtime": "nodejs20",
     "ignore": ["node_modules", ".git", "*.local"],
     "predeploy": [
-      "node -e \"require('fs').copyFileSync('schema.js', 'functions/schema.mjs')\""
+      "node \"$PROJECT_DIR/scripts/copy-schema.cjs\""
     ]
   }
 }
