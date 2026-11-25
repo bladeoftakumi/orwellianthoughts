@@ -99,6 +99,7 @@
       // ---- Callable Cloud Functions (admin management) ----
       F.hasFunctions = true;
       F.call = (name, data) => fn.httpsCallable(functions, name)(data || {}).then(r => r.data);
+      F.agentApiUrl = "https://us-central1-" + cfg.projectId + ".cloudfunctions.net/agentApi";
       const shape = (u, role) => ({ email: u.email, uid: u.uid, name: u.displayName || u.email.split("@")[0], role,
         emailVerified: !!u.emailVerified,
         mfaEnrolled: (multiFactor(u).enrolledFactors || []).length > 0 });
@@ -650,6 +651,57 @@
         </div>
         </sc-if>
       </div>
+
+      <sc-if value="{{ isMain }}" hint-placeholder-val="{{ true }}">
+      <div style="margin-top: 16px; background: var(--surface); border: 1px solid var(--hair); border-radius: 15px; padding: 24px;">
+        <div style="display: flex; align-items: center; gap: 11px; flex-wrap: wrap;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: var(--red-soft); display: flex; align-items: center; justify-content: center;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><circle cx="8" cy="15" r="4"></circle><path d="M10.8 12.2L20 3M16 7l3 3M14 9l2 2"></path></svg>
+          </div>
+          <h2 style="margin: 0; font-family: 'Newsreader', serif; font-weight: 600; font-size: 20px; flex: 1;">Agent API keys</h2>
+          <button onClick="{{ akToggle }}" style="padding: 9px 14px; border-radius: 9px; border: 1px solid var(--red); background: var(--red); color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 12.5px; cursor: pointer; white-space: nowrap;">{{ akToggleLabel }}</button>
+        </div>
+        <p style="margin: 13px 0 0; font-size: 13.5px; color: var(--muted); line-height: 1.55;">Keys let AI research agents read the record and submit drafts to the review queue. An agent key can never publish. Revoke a key at any time.</p>
+        <sc-if value="{{ akOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top: 18px; font-size: 12.5px; color: var(--muted);">Endpoint: <span style="font-family: 'IBM Plex Mono', monospace; color: var(--ink); word-break: break-all;">{{ akUrl }}</span></div>
+          <sc-if value="{{ akHasNew }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top: 16px; border: 1px solid var(--red); border-radius: 11px; padding: 14px 15px; background: var(--red-soft);">
+              <div style="font-size: 13px; font-weight: 600;">Key for {{ akNewName }}: copy it now, it will not be shown again.</div>
+              <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
+                <div style="flex: 1; min-width: 0; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--red); word-break: break-all;">{{ akNewKey }}</div>
+                <button onClick="{{ onAkCopy }}" style="padding: 7px 11px; border-radius: 7px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; min-width: 62px;">{{ akCopyLabel }}</button>
+              </div>
+              <p style="margin: 10px 0 0; font-size: 12px; color: var(--muted); line-height: 1.5;">Give it to the agent through a secure secret store, never by pasting it into a chat.</p>
+              <button onClick="{{ onAkDismiss }}" style="padding: 7px 11px; border-radius: 7px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; margin-top: 10px;">I have saved it</button>
+            </div>
+          </sc-if>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; align-items: end;">
+            <div><label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Agent name</label><input class="ot-inp" value="{{ akName }}" onInput="{{ onAkName }}" placeholder="Claude research" /></div>
+            <div><label style="display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Drafts per day</label><input class="ot-inp" value="{{ akLimit }}" onInput="{{ onAkLimit }}" placeholder="100" /></div>
+          </div>
+          <button onClick="{{ onAkCreate }}" style="padding: 9px 14px; border-radius: 9px; border: 1px solid var(--red); background: var(--red); color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 12.5px; cursor: pointer; white-space: nowrap; margin-top: 12px;">Create key</button>
+          <sc-if value="{{ akErr }}" hint-placeholder-val="{{ false }}"><div style="margin-top: 12px; font-size: 13px; color: var(--red);">{{ akErr }}</div></sc-if>
+          <sc-if value="{{ akLoading }}" hint-placeholder-val="{{ false }}"><div style="margin-top: 16px; font-size: 13px; color: var(--muted);">Loading keys…</div></sc-if>
+          <sc-if value="{{ akNoKeys }}" hint-placeholder-val="{{ false }}"><div style="margin-top: 16px; font-size: 13px; color: var(--muted);">No agent keys yet.</div></sc-if>
+          <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 8px;">
+            <sc-for list="{{ akRows }}" as="k" hint-placeholder-count="2">
+              <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border: 1px solid var(--hair); border-radius: 11px; padding: 12px 14px;">
+                <div style="flex: 1; min-width: 180px;">
+                  <div style="display: flex; align-items: center; gap: 8px;"><span style="font-weight: 600; font-size: 14px;">{{ k.name }}</span><span style="{{ k.statusStyle }}">{{ k.statusLabel }}</span></div>
+                  <div style="margin-top: 3px; font-size: 12px; color: var(--muted);"><span style="font-family: 'IBM Plex Mono', monospace;">{{ k.masked }}</span> · {{ k.meta }}</div>
+                </div>
+                <sc-if value="{{ k.active }}" hint-placeholder-val="{{ true }}">
+                  <sc-if value="{{ k.notConfirming }}" hint-placeholder-val="{{ true }}"><button onClick="{{ k.onRevoke }}" style="padding: 7px 11px; border-radius: 7px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">Revoke</button></sc-if>
+                  <sc-if value="{{ k.confirming }}" hint-placeholder-val="{{ false }}">
+                    <div style="display: flex; gap: 6px;"><button onClick="{{ k.onCancel }}" style="padding: 7px 11px; border-radius: 7px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;">Cancel</button><button onClick="{{ k.onRevokeConfirm }}" style="padding: 7px 11px; border-radius: 7px; border: 1px solid var(--red); background: var(--red); color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer;">Revoke key</button></div>
+                  </sc-if>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+      </sc-if>
 
       <button onClick="{{ logout }}" style="margin-top: 30px; padding: 10px 17px; border-radius: 9px; border: 1px solid var(--hair); background: var(--panel); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap;">Sign out</button>
     </div>
@@ -1710,7 +1762,8 @@ class Component extends DCLogic {
       fModalOpen: false, fEditId: null, fName: '', fRole: '', fCountry: '', fState: '', fCity: '', comboOpen: null, fPhoto: '', fPhotoFile: null, fPhotoPath: '', fPhotoBusy: false, fBirth: '', fMilestones: [], fErr: '', confirmFig: null,
       eModalOpen: false, eEditId: null, eDraft: null, eErr: '', confirmEntry: null, adminTab: 'promises',
       articlesPub: this.loadArticlesPub(), articlesAll: this.loadArticlesAll(),
-      aEditId: null, aTitle: '', aSubtitle: '', aAuthor: '', aDate: '', aTags: '', aFigureIds: [], aBody: '', aErr: '', aBusy: false, aPreview: false, aPreviewFull: false, articleViewId: null, confirmArticle: null };
+      aEditId: null, aTitle: '', aSubtitle: '', aAuthor: '', aDate: '', aTags: '', aFigureIds: [], aBody: '', aErr: '', aBusy: false, aPreview: false, aPreviewFull: false, articleViewId: null, confirmArticle: null,
+      akOpen: false, akKeys: [], akLoading: false, akErr: '', akName: '', akLimit: '100', akNew: null, akBusy: false, akConfirm: null };
   }
 
   componentDidMount() {
@@ -2282,6 +2335,12 @@ class Component extends DCLogic {
     const p = d.payload || {};
     // A removal request carries no content to validate.
     if (d.target && (d.target.deleteEntryId || d.target.deleteFigure)) return { ok: true, errors: [], value: p };
+    // Additions to an existing figure (new entries, entry updates, flags) carry no
+    // figure block; validate only what they add, so approval never touches the
+    // figure's own details.
+    if (d.target && d.target.mode === 'existing' && !p.figure && window.otSchema && window.otSchema.validateAdditions) {
+      return window.otSchema.validateAdditions(p, d.target.figureId, { requireSources: true });
+    }
     // A figure-only submission (an agent editing figure details) has no entries
     // to validate against the entry schema; accept it on its own terms.
     if (p.figure && !(p.entries || []).length && !(p.flags || []).length) {
@@ -2724,6 +2783,34 @@ class Component extends DCLogic {
     if (/not-found|no user/i.test(m)) return 'That editor account was not found.';
     return m || 'The action could not be completed. Try again.';
   }
+  // ---- Agent API keys (main admin only; managed through Cloud Functions) ----
+  async loadAgentKeys() {
+    if (!(window.otFB && window.otFB.call)) { this.setState({ akErr: 'Cloud Functions are not available.' }); return; }
+    this.setState({ akLoading: true, akErr: '' });
+    try { const r = await window.otFB.call('listAgentKeys'); this.setState({ akKeys: r.keys || [], akLoading: false }); }
+    catch (e) { this.setState({ akLoading: false, akErr: (e && e.message) || 'Could not load agent keys. Are the functions deployed?' }); }
+  }
+  toggleAgentKeys() {
+    const open = !this.state.akOpen;
+    this.setState({ akOpen: open, akNew: null, akErr: '' });
+    if (open) this.loadAgentKeys();
+  }
+  async createAgentKey() {
+    const name = this.state.akName.trim();
+    if (!name) { this.setState({ akErr: 'Give the agent a name, for example "Claude research".' }); return; }
+    this.setState({ akBusy: true, akErr: '' });
+    try {
+      const r = await window.otFB.call('createAgentKey', { name, dailyLimit: parseInt(this.state.akLimit, 10) || 100 });
+      this.setState({ akBusy: false, akNew: r, akName: '' });
+      this.loadAgentKeys();
+    } catch (e) { this.setState({ akBusy: false, akErr: (e && e.message) || 'Could not create the key.' }); }
+  }
+  async revokeAgentKey(id) {
+    this.setState({ akBusy: true, akErr: '', akConfirm: null });
+    try { await window.otFB.call('revokeAgentKey', { id }); this.setState({ akBusy: false }); this.loadAgentKeys(); }
+    catch (e) { this.setState({ akBusy: false, akErr: (e && e.message) || 'Could not revoke the key.' }); }
+  }
+
   copyText(t, key) {
     const done = () => {
       if (!key) return;
@@ -2873,6 +2960,21 @@ class Component extends DCLogic {
       goReview: () => this.setState({ view: 'review', draftErr: '' }),
       draftCount: (s.drafts || []).length, hasPendingDrafts: (s.drafts || []).length > 0,
       isMain: !!(s.authUser && s.authUser.role === 'main'),
+      akOpen: s.akOpen, akToggle: () => this.toggleAgentKeys(), akToggleLabel: s.akOpen ? 'Hide agent keys' : 'Manage agent keys \u2192',
+      akErr: s.akErr, akLoading: s.akLoading, akName: s.akName, akLimit: s.akLimit, akBusy: s.akBusy,
+      akUrl: (window.otFB && window.otFB.agentApiUrl) || '',
+      onAkName: (e) => this.set('akName', e.target.value), onAkLimit: (e) => this.set('akLimit', e.target.value.replace(/[^0-9]/g, '')),
+      onAkCreate: () => this.createAgentKey(),
+      akHasNew: !!s.akNew, akNewKey: s.akNew ? s.akNew.key : '', akNewName: s.akNew ? s.akNew.name : '',
+      onAkCopy: () => s.akNew && this.copyText(s.akNew.key, 'agentkey'), akCopyLabel: s.copied === 'agentkey' ? 'Copied' : 'Copy',
+      onAkDismiss: () => this.setState({ akNew: null }),
+      akNoKeys: !s.akLoading && (s.akKeys || []).length === 0,
+      akRows: (s.akKeys || []).map(k => ({ id: k.id, name: k.name, masked: 'dtk_\u2026' + (k.last4 || ''),
+        meta: (k.active ? (k.draftsToday + ' / ' + k.dailyLimit + ' drafts today') : 'Revoked') + ' \u00b7 created ' + this.fmtDate(k.created || Date.now()) + (k.lastUsed ? ' \u00b7 last used ' + this.fmtDate(k.lastUsed) : ''),
+        active: k.active, confirming: s.akConfirm === k.id, notConfirming: s.akConfirm !== k.id,
+        statusStyle: 'font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;padding:3px 9px;border-radius:20px;' + (k.active ? 'color:var(--green);background:var(--chip);' : 'color:var(--muted);background:var(--panel);border:1px solid var(--hair);'),
+        statusLabel: k.active ? 'Active' : 'Revoked',
+        onRevoke: () => this.setState({ akConfirm: k.id }), onRevokeConfirm: () => this.revokeAgentKey(k.id), onCancel: () => this.setState({ akConfirm: null }) })),
       isAgentUser: this.isAgent(),
       goFigures: () => this.openFigures(),
       showFooter: s.view === 'home' || s.view === 'profile',

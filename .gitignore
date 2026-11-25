@@ -4,3 +4,4 @@ node_modules/
 .env
 *service-account*.json
 service-account.json
+functions/schema.mjs

@@ -76,6 +76,15 @@ service cloud.firestore {
       allow delete: if isAdmin() || isAgentLead();
     }
 
+    // Agent API keys (hashed). Managed only by Cloud Functions via the Admin SDK;
+    // no client, not even an admin, reads or writes these directly.
+    match /agentKeys/{keyId} {
+      allow read, write: if false;
+      match /{rest=**} {
+        allow read, write: if false;
+      }
+    }
+
     // Instance bootstrap flag. World-readable so the app knows whether the
     // one-time main-admin setup has already happened. Created exactly once,
     // by the account that claims the instance; only main admin can touch it after.

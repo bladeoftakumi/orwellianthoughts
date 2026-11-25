@@ -202,4 +202,25 @@ export function validatePayload(payload, opts) {
   return { ok: errors.length === 0, errors, value: { figure: figRes.value, entries: entriesOut, flags: flagsOut } };
 }
 
+// Validate a payload that ADDS to an existing figure: { entries?, flags? } with no
+// figure block. Flags without a figureId inherit the target figure's id.
+export function validateAdditions(payload, figureId, opts) {
+  opts = opts || {};
+  const errors = [];
+  const entries = Array.isArray(payload && payload.entries) ? payload.entries : [];
+  const flags = Array.isArray(payload && payload.flags) ? payload.flags : [];
+  if (!entries.length && !flags.length) errors.push('payload: add at least one entry or flag');
+  const entriesOut = entries.map((e, i) => {
+    const r = validateEntry(e, opts);
+    if (!r.ok) r.errors.forEach(m => errors.push('entry ' + (i + 1) + ': ' + m));
+    return r.value;
+  });
+  const flagsOut = flags.map((f, i) => {
+    const r = validateFlag({ ...(f || {}), figureId: (f && f.figureId) || figureId }, opts);
+    if (!r.ok) r.errors.forEach(m => errors.push('flag ' + (i + 1) + ': ' + m));
+    return r.value;
+  });
+  return { ok: errors.length === 0, errors, value: { entries: entriesOut, flags: flagsOut } };
+}
+
 export const SCHEMA_VERSION = 1;
